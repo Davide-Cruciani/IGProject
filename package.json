@@ -2,6 +2,15 @@
   "name": "help",
   "version": "1.0.0",
   "main": "logic.js",
+  "exports": {
+    ".": {
+      "import": "./build/three.module.js",
+      "require": "./build/three.cjs"
+    },
+    "./examples/fonts/*": "./examples/fonts/*",
+    "./examples/jsm/*": "./examples/jsm/*",
+    "./addons": "./examples/jsm/Addons.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "npx vite"
