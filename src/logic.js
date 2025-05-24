@@ -1,17 +1,13 @@
 import * as THREE from 'three';
 import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
-import {OBJLoader} from 'three/examples/jsm/loaders/OBJLoader.js'
-import {Character} from './Character.js'
+import { Character } from './Character.js'
+import { readConfigs } from './configLoader.js';
 
 const DEBUG_ON = true;
 const TIME_QUANTA = 1e-2;
-const BASE_DRAG = 1.001;
-const BREAKS_DRAG = 2;
 
 var clock = 0;
 var lastInstant = 0;
-
-
 
 const scene = new THREE.Scene();
 
@@ -49,9 +45,13 @@ light.position.set(5, 10, 7.5);
 scene.add(light);
 scene.add(new THREE.AmbientLight(0x505050));
 
-const player = new Character('./assets/E-45-Aircraft', scene);
+readConfigs('./configs/playerCharacterConfigs.json').then((res)=>{
+    if (DEBUG_ON) console.log(res);
+    const player = new Character('./assets/E-45-Aircraft', scene, res);
+    window.player = player;
+})
 
-window.player = player;
+
 
 var currentKeys = {
     'a': 0,
@@ -91,7 +91,7 @@ document.addEventListener('keydown', (event)=>{
             currentKeys['space'] = 1;
             break;
         default:
-            if (DEBUG_ON) console.log(event.key);
+            if (DEBUG_ON) console.log('Unknown key: ' + event.key);
             break;
     }
 });
@@ -100,29 +100,23 @@ document.addEventListener('keyup', (event)=>{
     switch (event.key.toLowerCase()) {
         case 'a':
             currentKeys['a'] = 0;
-            if (DEBUG_ON) console.log(event.key);
             break;
         case 'c':
             currentKeys['c'] = 0;
-            if (DEBUG_ON) console.log(event.key);
             break;
         case 'd':
             currentKeys['d'] = 0;
-            if (DEBUG_ON) console.log(event.key);
             break;
         case 'w':
             currentKeys['w'] = 0;
-            if (DEBUG_ON) console.log(event.key);
             break;
         case 's':
             currentKeys['s'] = 0;
-            if (DEBUG_ON) console.log(event.key);
             break;
         case ' ':
             currentKeys['space'] = 0;
             break;
         default:
-            if (DEBUG_ON) console.log(event.key);
             break;
     }
 });

@@ -1,16 +1,15 @@
 import { OBJLoader } from "three/examples/jsm/Addons.js";
 import { MTLLoader } from "three/examples/jsm/Addons.js";
 
-const BASE_DRAG = 1.005;
-const BREAKS_DRAG = 2;
-const MAX_SPEED = 2;
-
 export class Character{
-    constructor(path, scene){
-        this.velocity = 0;
-        this.angVelocity = 0;
-        this.acceleration = 0.01;
-        this.angAcceleration = 0.001; 
+    constructor(path, scene, configs){
+        this.ACC = configs['acceleration'];
+        this.ANG_ACC = configs['angular_acceleration'];
+        this.MAX_SPEED = configs['max_speed'];
+        this.BASE_DRAG = configs['base_drag'];
+        this.BREAKS_DRAG = configs['breaks_drag'];
+        this.vel = 0;
+        this.angVel = 0;
         this.loaded = false;
         
         const mtlLoader = new MTLLoader();
@@ -46,22 +45,22 @@ export class Character{
         var w = keys['w'];
         var s = keys['s'];
 
-        if (w>0) this.velocity += this.acceleration*((a===2)? 0.1: 1) * time;
-        else if(s>0) this.velocity -= this.acceleration*((d===2)? 0.1: 1) * time;
+        if (w>0) this.vel += this.ACC*((a===2)? 0.1: 1) * time;
+        else if(s>0) this.vel -= this.ACC*((d===2)? 0.1: 1) * time;
         
-        if (a>0) this.angVelocity += this.angAcceleration*((w===2)? 0.1: 1) * time;
-        else if(d>0) this.angVelocity -= this.angAcceleration*((s===2)? 0.1: 1) * time;
+        if (a>0) this.angVel += this.ANG_ACC*((w===2)? 0.1: 1) * time;
+        else if(d>0) this.angVel -= this.ANG_ACC*((s===2)? 0.1: 1) * time;
         
-        this.velocity = Math.min(MAX_SPEED, this.velocity);
-        this.angVelocity = Math.min(MAX_SPEED/100, this.angVelocity);
+        this.vel = Math.min(this.MAX_SPEED, this.vel);
+        this.angVel = Math.min(this.MAX_SPEED/100, this.angVel);
 
-        var drag = (keys['c'])? BREAKS_DRAG: BASE_DRAG; 
+        var drag = (keys['c'])? this.BREAKS_DRAG: this.BASE_DRAG; 
 
-        this.velocity /= drag;
-        this.angVelocity /= drag;
+        this.vel /= drag;
+        this.angVel /= drag;
 
-        this.obj.rotateZ(this.angVelocity * time);
-        this.obj.translateY(this.velocity * time);
+        this.obj.rotateZ(this.angVel * time);
+        this.obj.translateY(this.vel * time);
     }
 
     add(child){
