@@ -1,15 +1,45 @@
+import { OBJLoader } from "three/examples/jsm/Addons.js";
+import { MTLLoader } from "three/examples/jsm/Addons.js";
+
 const BASE_DRAG = 1.005;
 const BREAKS_DRAG = 2;
 const MAX_SPEED = 2;
 
 export class Character{
-    constructor(mesh){
-        this.obj = mesh;
+    constructor(path, scene){
         this.velocity = 0;
         this.angVelocity = 0;
         this.acceleration = 0.01;
         this.angAcceleration = 0.001; 
+        this.loaded = false;
+        
+        const mtlLoader = new MTLLoader();
+        mtlLoader.setPath(path+"/");
+        mtlLoader.load('playerShip.mtl', 
+            (mtl)=>{
+                mtl.preload();
+                const objectLoader = new OBJLoader();
+                objectLoader.setPath(path+'/');
+                objectLoader.setMaterials(mtl);
+                objectLoader.load('playerShip.obj',
+                    (obj)=>{
+                        obj.scale.set(0.5,0.5,0.5);
+                        obj.traverse((child)=>{
+                            if(child.isMesh) child.geometry.rotateX(Math.PI/2);
+                        })
+                        this.obj = obj;
+                        scene.add(obj);
+                        this.loaded = true;
+                    },
+                    undefined, 
+                    (err)=>{ console.log(err); }
+                );
+            },
+            undefined, 
+            (err)=>{ console.log(err); }
+        )
     };
+
     update(keys, time){
         var a = keys['a'];
         var d = keys['d'];
@@ -33,6 +63,7 @@ export class Character{
         this.obj.rotateZ(this.angVelocity * time);
         this.obj.translateY(this.velocity * time);
     }
+
     add(child){
         this.obj.add(child);
     }

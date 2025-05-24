@@ -44,33 +44,14 @@ class TextObject extends CSS2DObject{
     };
 }
 
-const shipLoader = new OBJLoader();
-
 const light = new THREE.DirectionalLight(0xffffff, 1);
 light.position.set(5, 10, 7.5);
 scene.add(light);
 scene.add(new THREE.AmbientLight(0x505050));
 
-shipLoader.load('assets/ship1.obj', 
-    (ship)=>{
-        scene.add(ship);
-        ship.traverse((obj)=>{
-            if(obj.isMesh){
-                obj.material.color.set(0xff0000);
-            }
-        })
-        ship.scale.set(0.5,0.5,0.5);
-        const player = new Character(ship);
-        ship.traverse((child) => {
-            if (child.isMesh) {
-                child.geometry.rotateX(Math.PI / 2);
-            }
-        });
-        window.player = player;
-    }, 
-    undefined, 
-    (err)=>{console.log(err);}
-);
+const player = new Character('./assets/E-45-Aircraft', scene);
+
+window.player = player;
 
 var currentKeys = {
     'a': 0,
@@ -155,7 +136,7 @@ window.setInterval(()=>{ clock+=1; }, TIME_QUANTA);
 renderer.setAnimationLoop(()=>{
     var dt = clock - lastInstant;
     lastInstant = clock;
-    if (window.player)
+    if (window.player && window.player.loaded)
         window.player.update(currentKeys, dt);
     renderer.render(scene, camera);
     textRenderer.render(scene, camera);
