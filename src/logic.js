@@ -4,10 +4,7 @@ import { Character } from './Character.js'
 import { readConfigs } from './configLoader.js';
 
 const DEBUG_ON = true;
-const TIME_QUANTA = 1e-2;
 
-var clock = 0;
-var lastInstant = 0;
 
 const scene = new THREE.Scene();
 
@@ -45,9 +42,9 @@ light.position.set(5, 10, 7.5);
 scene.add(light);
 scene.add(new THREE.AmbientLight(0x505050));
 
-readConfigs('./configs/playerCharacterConfigs.json').then((res)=>{
-    if (DEBUG_ON) console.log(res);
-    const player = new Character('./assets/E-45-Aircraft', scene, res);
+readConfigs('./configs/playerCharacterConfigs.json').then((playerConfigs)=>{
+    if (DEBUG_ON) console.info(playerConfigs);
+    const player = new Character('./assets/E-45-Aircraft', scene, playerConfigs);
     window.player = player;
 })
 
@@ -125,11 +122,10 @@ document.addEventListener('wheel', (ev)=>{
     camera.translateZ(ev.deltaY/100);
 })
 
-window.setInterval(()=>{ clock+=1; }, TIME_QUANTA);
+const clock = new THREE.Clock();
 
 renderer.setAnimationLoop(()=>{
-    var dt = clock - lastInstant;
-    lastInstant = clock;
+    var dt = clock.getDelta();
     if (window.player && window.player.loaded)
         window.player.update(currentKeys, dt);
     renderer.render(scene, camera);
