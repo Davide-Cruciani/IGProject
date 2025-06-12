@@ -1,17 +1,18 @@
 import { OBJLoader } from "three/examples/jsm/Addons.js";
 import { MTLLoader } from "three/examples/jsm/Addons.js";
-import { Bullet } from "./bullet";
-import { Vector3, ArrowHelper, Clock } from "three";
+import { Bullet } from "./Bullet";
+import { Vector3, Clock, Object3D, Quaternion} from "three";
 
 
 export class Character{
-    constructor(path, scene, configs){
-        this.ACC = configs['acceleration'];
-        this.TEAMCOLOR = 0x0000ff;
-        this.ANG_SPEED = configs['angular_speed'];
-        this.MAX_SPEED = configs['max_speed'];
-        this.BASE_DRAG = configs['base_drag'];
-        this.BREAKS_DRAG = configs['breaks_drag'];
+    constructor(path, scene, camera){
+        this.ACC = 1.5;
+        this.TEAMCOLOR = 0x00ff00;
+        this.ANG_SPEED = 10;
+        this.MAX_SPEED = 3
+        this.BASE_DRAG = 1.005;
+        this.BREAKS_DRAG = 1.2;
+        this.SENSITIVITY = 0.003;
         this.PRIMARY_CD = 0.5;
         this.BULLET_TTL = 4;
         
@@ -19,7 +20,7 @@ export class Character{
 
         this.loaded = false;
         this.vel = 0;
-        this.angVel = 0;
+        this.latVel = 0;
 
         this.bulletCount = 0;
         this.bulletList = [];
@@ -41,8 +42,17 @@ export class Character{
                             if(child.isMesh) child.geometry.rotateX(Math.PI/2);
                         })
                         this.obj = obj;
-                        scene.add(obj);
                         this.loaded = true;
+                        this.root = new Object3D();
+                        this.pitchObj = new Object3D();
+
+                        this.root.add(this.pitchObj);
+                        this.pitchObj.add(this.obj);
+                        this.pitchObj.add(camera);
+
+                        scene.add(this.root);
+                        camera.position.set(0,-5,3);
+                        camera.lookAt(this.pitchObj.position);
                     },
                     undefined, 
                     (err)=>{ console.log(err); }
@@ -61,25 +71,17 @@ export class Character{
         var d = keys['d'];
         var w = keys['w'];
         var s = keys['s'];
+        var c = keys['c'];
+
+        var mouseX = keys['mouseX'];
+        var mouseY = keys['mouseY'];
+
+        if (mouseX !== 0) this.root.rotation.z -= mouseX * this.SENSITIVITY;
+        if (mouseY !== 0) this.pitchObj.rotation.x -= mouseY * this.SENSITIVITY;
 
         var primary = keys['mb0'];
 
-        if (w>0) this.vel += this.ACC*((a===2)? 0.1: 1) * time;
-        else if(s>0) this.vel -= this.ACC*((d===2)? 0.1: 1) * time;
-        
-        if (a>0) this.angVel = this.ANG_SPEED*((w===2)? 0.1: 1) * time;
-        else if(d>0) this.angVel = -this.ANG_SPEED*((s===2)? 0.1: 1) * time;
-        else this.angVel = 0;
-        
-        this.vel = Math.min(this.MAX_SPEED, this.vel);
-        this.angVel = Math.min(this.MAX_SPEED, this.angVel);
-
-        var drag = (keys['c'])? this.BREAKS_DRAG: this.BASE_DRAG; 
-
-        this.vel /= drag;
-
-        this.obj.rotateZ(this.angVel * time);
-        this.obj.translateY(this.vel * time);
+        this.movement(a,d,s,w,c,time);
 
         if (primary === 1){
             if (this.timeKeeper - this.timeLastBullet > this.PRIMARY_CD){
@@ -92,8 +94,9 @@ export class Character{
     }
 
     shootPrimary(){
-        var direction = new Vector3(0,1,0);
-        direction.applyQuaternion(this.obj.quaternion);
+        var direction = new Vector3(0, 1, 0);
+        direction.applyMatrix4(this.obj.matrixWorld);
+        direction.sub(this.obj.getWorldPosition(new Vector3()));
         direction.normalize();
 
         var position = new Vector3();
@@ -108,6 +111,32 @@ export class Character{
         window.bulletList.push(bulletRecord);
         this.bulletCount++;
         this.scene.add(bullet.getMesh());
+    }
+
+    movement(keyA, keyD, keyS, keyW, keyC, time){
+        if (keyD>0) this.latVel += this.ACC*((keyD===2)? 0.1: 1) * time;
+        else if(keyA>0) this.latVel -= this.ACC*((keyA===2)? 0.1: 1) * time;
+        if (keyW>0) this.vel += this.ACC*((keyW===2)? 0.1: 1) * time;
+        else if(keyS>0) this.vel -= this.ACC*((keyS===2)? 0.1: 1) * time;
+        
+        this.latVel = Math.min(this.MAX_SPEED, this.latVel);
+        this.vel = Math.min(this.MAX_SPEED, this.vel);
+        var drag = (keyC)? this.BREAKS_DRAG: this.BASE_DRAG;
+        
+        this.latVel /= drag;
+        this.vel /= drag;
+        
+        var right = new Vector3(1, 0, 0);
+        var forward = new Vector3(0, 1, 0)
+        
+        const combinedQuat = new Quaternion();
+        combinedQuat.multiplyQuaternions(this.root.quaternion, this.pitchObj.quaternion);
+        
+        forward.applyQuaternion(combinedQuat);
+        right.applyQuaternion(combinedQuat);
+        
+        this.root.position.addScaledVector(forward, this.vel * time);
+        this.root.position.addScaledVector(right, this.latVel * time);
     }
 
     add(child){

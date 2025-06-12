@@ -1,4 +1,4 @@
-import { SphereGeometry, Mesh, MeshBasicMaterial, MeshPhongMaterial, PointLight} from "three";
+import { SphereGeometry, Mesh, MeshPhongMaterial} from "three";
 
 export class Bullet{
     constructor(position, direction, shipColor, user) {
@@ -10,7 +10,7 @@ export class Bullet{
         this.direction = direction;
         this.mesh.position.copy(position);
         this.user = user;
-        this.SPEED = 3;
+        this.SPEED = 10;
     }
 
     getMesh(){ return this.mesh; };

@@ -1,7 +1,0 @@
-{
-    "base_drag":1.005,
-    "breaks_drag": 2,
-    "max_speed":2,
-    "acceleration":1,
-    "angular_speed":50
-}

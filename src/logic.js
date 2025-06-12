@@ -1,27 +1,28 @@
 import * as THREE from 'three';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { Character } from './Character.js'
-import { readConfigs } from './configLoader.js';
-import { DebugBoard } from './debugBoard.js';
+import { DebugBoard } from './DebugBoard.js';
+import { Corvette } from './enemies/Corvette.js';
 
 const DEBUG_ON = true;
-var animationCnt = 0;
-
 const DESIRED_FPS = 60;
 const FRAME_DURATION = 1/DESIRED_FPS;
+
+var animationCnt = 0;
 var lastFrameTime = 0;
 var lastFrameLog = 0;
+document.body.style.cursor = 'none';
+window.bulletList = [];
+
 
 const scene = new THREE.Scene();
 const clock = new THREE.Clock();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.rotateX(Math.PI/4);
-camera.translateZ(5);
-
 
 const renderer = new THREE.WebGLRenderer();
+const canvas = renderer.domElement;
 renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+document.body.appendChild(canvas);
 
 const textRenderer = new CSS2DRenderer();
 textRenderer.domElement.style.position = 'absolute';
@@ -30,26 +31,18 @@ textRenderer.domElement.style.pointerEvents = 'none';
 textRenderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(textRenderer.domElement);
 
-
 const light = new THREE.DirectionalLight(0xffffff, 1);
 light.position.set(5, 10, 7.5);
 scene.add(light);
-scene.add(new THREE.AmbientLight(0x505050));
+scene.add(new THREE.AmbientLight(0xf0f0f0));
 
-readConfigs('./configs/playerCharacterConfigs.json').then((playerConfigs)=>{
-    if (DEBUG_ON) console.info(playerConfigs);
-    const player = new Character('./assets/E-45-Aircraft', scene, playerConfigs);
-    window.player = player;
-})
+const player = new Character('./assets/E-45-Aircraft', scene, camera);
+window.player = player;
 
 const board = new DebugBoard(10,600,10);
 scene.add(board.getMesh());
 
-
-window.bulletList = [];
-
-
-
+const enemy1 = new Corvette('./assets/Corvette/Corvette.gltf', new THREE.Vector3(10,10,0), scene);
 var currentInputs = {
     'a': 0,
     'd': 0,
@@ -57,10 +50,12 @@ var currentInputs = {
     'w': 0,
     'c':0,
     'mb1':0,
-    'mb0':0
+    'mb0':0,
+    'mouseX':0,
+    'mouseY':0
 }
 
-document.addEventListener('keydown', (event)=>{
+function keydownHandler(event){
     switch (event.key.toLowerCase()) {
         case 'a':
             currentInputs['a'] = (event.shiftKey)? 2: 1;
@@ -90,9 +85,9 @@ document.addEventListener('keydown', (event)=>{
             if (DEBUG_ON) console.log('Unknown key: ' + event.key);
             break;
     }
-});
+}
 
-document.addEventListener('keyup', (event)=>{
+function keyupHandler(event){
     switch (event.key.toLowerCase()) {
         case 'a':
             currentInputs['a'] = 0;
@@ -112,9 +107,9 @@ document.addEventListener('keyup', (event)=>{
         default:
             break;
     }
-});
+}
 
-document.addEventListener('mousedown', (event)=>{
+function mousedownHandler(event){
     switch (event.button){
         case 0:
             currentInputs['mb0'] = 1;
@@ -126,9 +121,9 @@ document.addEventListener('mousedown', (event)=>{
             console.log('Unused mouse button', (event.button));
             break;
     }
-})
+}
 
-document.addEventListener('mouseup', (event)=>{
+function mouseupHandler(event){
     switch (event.button){
         case 0:
             currentInputs['mb0'] = 0;
@@ -140,13 +135,38 @@ document.addEventListener('mouseup', (event)=>{
             console.log('Unused mouse button', (event.button));
             break;
     }
+}
+
+function mousemoveHand(event){
+    var x = event.movementX || 0;
+    var y = event.movementY || 0;
+
+    currentInputs['mouseX'] = x;
+    currentInputs['mouseY'] = y;
+}
+
+document.addEventListener('mousedown', mousedownHandler);
+document.addEventListener('mouseup', mouseupHandler);
+document.addEventListener('keyup', keyupHandler);
+document.addEventListener('keydown', keydownHandler);
+
+canvas.addEventListener('click', ()=>{
+    canvas.requestPointerLock();
 })
 
-document.addEventListener('wheel', (ev)=>{
-    camera.translateZ(ev.deltaY/100);
+document.addEventListener('pointerlockchange', ()=>{
+    if (document.pointerLockElement === canvas){
+        document.addEventListener('mousemove', mousemoveHand)
+    }else{
+        document.removeEventListener('mousemove', mousemoveHand)
+    }
 })
 
-renderer.setAnimationLoop(()=>{
+document.addEventListener('wheel', (event)=>{
+    camera.translateZ(event.deltaY/100);
+})
+
+function loop(){
     const elapsed = clock.getElapsedTime();
     var deltaTime = elapsed - lastFrameTime;
     if(deltaTime < FRAME_DURATION) return;
@@ -181,5 +201,8 @@ renderer.setAnimationLoop(()=>{
     window.bulletList = toKeep;
     renderer.render(scene, camera);
     textRenderer.render(scene, camera);
-    
-});
+    currentInputs.mouseX = 0;
+    currentInputs.mouseY = 0;
+}
+
+renderer.setAnimationLoop(loop);

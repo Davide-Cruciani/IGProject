@@ -1,4 +1,4 @@
-import { PlaneGeometry, MeshStandardMaterial, Mesh, CanvasTexture, DoubleSide } from "three";
+import { PlaneGeometry, Mesh, CanvasTexture, DoubleSide, MeshPhongMaterial } from "three";
 
 function createCheckerboardTexture(size = 600, squares = 10) {
   const canvas = document.createElement('canvas');
@@ -27,7 +27,7 @@ export class DebugBoard{
     constructor(size, resolution, squares){
         this.geometry = new PlaneGeometry(size, size);
         this.texture = createCheckerboardTexture(resolution, squares);
-        this.material = new MeshStandardMaterial({ map: this.texture, side: DoubleSide });
+        this.material = new MeshPhongMaterial({ map: this.texture, side: DoubleSide });
         this.board = new Mesh(this.geometry, this.material);
     }
 
