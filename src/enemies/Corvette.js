@@ -1,8 +1,8 @@
-import { Enemy } from "../enemy";
+import { Enemy } from "./Enemy";
 
 export class Corvette extends Enemy{
-    constructor(path, position, scene){
-        super(path, position, scene);
+    constructor(position, scene){
+        super("spaceship1", position, scene);
         this.SPEED = 1;
         this.BASE_DRAG = 1.005;
     }

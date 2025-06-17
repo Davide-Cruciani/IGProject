@@ -13,7 +13,7 @@ var lastFrameTime = 0;
 var lastFrameLog = 0;
 document.body.style.cursor = 'none';
 window.bulletList = [];
-
+window.enemyList = [];
 
 const scene = new THREE.Scene();
 const clock = new THREE.Clock();
@@ -42,7 +42,7 @@ window.player = player;
 const board = new DebugBoard(10,600,10);
 scene.add(board.getMesh());
 
-const enemy1 = new Corvette('./assets/Corvette/Corvette.gltf', new THREE.Vector3(10,10,0), scene);
+const enemy1 = new Corvette(new THREE.Vector3(0,0,2), scene);
 var currentInputs = {
     'a': 0,
     'd': 0,
@@ -198,6 +198,16 @@ function loop(){
             bullet['obj'].delete();
         }
     }
+    var enemyToKeep = []
+    for (let i=0;i<window.enemyList.length; i++){
+        let enemyPtr = window.enemyList[i];
+        if(!enemyPtr || !enemyPtr.loaded) continue;
+        else{
+            enemyPtr.update()
+            if(!enemyPtr.isDead()) enemyToKeep.push(enemyPtr);
+        }
+    }
+
     window.bulletList = toKeep;
     renderer.render(scene, camera);
     textRenderer.render(scene, camera);
