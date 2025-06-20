@@ -1,7 +1,7 @@
 
-import { CSS2DObject } from 'three/examples/jsm/renderers/CSS2DObject.js';
+import { CSS2DObject } from "three/examples/jsm/Addons.js";
 
-export class TextObject extends CSS2DObject{
+export class TextDisplay extends CSS2DObject{
     constructor(text) {
         var div = document.createElement('div');
         div.className = 'label';
@@ -12,4 +12,5 @@ export class TextObject extends CSS2DObject{
         super(div);
         this.baseEntity = div;
     };
+    setText(text){ this.baseEntity.textContent = text;};
 }

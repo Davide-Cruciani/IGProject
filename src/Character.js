@@ -5,7 +5,7 @@ import { Vector3, Clock, Object3D, Quaternion} from "three";
 
 
 export class Character{
-    constructor(path, scene, camera){
+    constructor(scene, camera){
         this.ACC = 1.5;
         this.TEAMCOLOR = 0x00ff00;
         this.ANG_SPEED = 10;
@@ -27,17 +27,19 @@ export class Character{
         this.timeKeeper = 0;
         this.timeLastBullet = 0;
 
+        const path = "assets/PlayerCharacter"
+
         const mtlLoader = new MTLLoader();
         mtlLoader.setPath(path+"/");
-        mtlLoader.load('playerShip.mtl', 
+        mtlLoader.load('SciFi_Fighter_AK5.mtl', 
             (mtl)=>{
                 mtl.preload();
                 const objectLoader = new OBJLoader();
                 objectLoader.setPath(path+'/');
                 objectLoader.setMaterials(mtl);
-                objectLoader.load('playerShip.obj',
+                objectLoader.load('SciFi_Fighter_AK5.obj',
                     (obj)=>{
-                        obj.scale.set(0.5,0.5,0.5);
+                        obj.scale.set(0.001,0.001,0.001);
                         obj.traverse((child)=>{
                             if(child.isMesh) child.geometry.rotateX(Math.PI/2);
                         })
@@ -52,7 +54,8 @@ export class Character{
 
                         scene.add(this.root);
                         camera.position.set(0,-5,3);
-                        camera.lookAt(this.pitchObj.position);
+                        var offset = new Vector3(0,0,3)
+                        camera.lookAt(offset.add(this.pitchObj.position));
                     },
                     undefined, 
                     (err)=>{ console.log(err); }
@@ -95,8 +98,10 @@ export class Character{
 
     shootPrimary(){
         var direction = new Vector3(0, 1, 0);
-        direction.applyMatrix4(this.obj.matrixWorld);
-        direction.sub(this.obj.getWorldPosition(new Vector3()));
+        var directionQuaternion = new Quaternion();
+        directionQuaternion.multiplyQuaternions(this.root.quaternion, this.pitchObj.quaternion);
+
+        direction.applyQuaternion(directionQuaternion);
         direction.normalize();
 
         var position = new Vector3();
@@ -142,4 +147,6 @@ export class Character{
     add(child){
         this.obj.add(child);
     }
+
+    getWorldPosition(){ return this.obj.getWorldPosition(new Vector3()); };
 }

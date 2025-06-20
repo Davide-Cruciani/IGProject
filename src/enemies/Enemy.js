@@ -35,6 +35,8 @@ export class Enemy{
                     (err)=>{ console.log(err); }
                 )
     };
+    addChild(child){ this.obj.add(child); };
     getMesh(){ return this.obj; };
     isDead(){ return this.dead; };
+    getWorldPosition(){ return this.obj.getWorldPosition();};
 }

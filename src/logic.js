@@ -3,6 +3,8 @@ import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { Character } from './Character.js'
 import { DebugBoard } from './DebugBoard.js';
 import { Corvette } from './enemies/Corvette.js';
+import { TextDisplay } from './Display.js';
+import { Skysphere } from './Skysphere.js';
 
 const DEBUG_ON = true;
 const DESIRED_FPS = 60;
@@ -22,7 +24,10 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHei
 const renderer = new THREE.WebGLRenderer();
 const canvas = renderer.domElement;
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMappingExposure = 2.0;
 document.body.appendChild(canvas);
+
 
 const textRenderer = new CSS2DRenderer();
 textRenderer.domElement.style.position = 'absolute';
@@ -31,18 +36,27 @@ textRenderer.domElement.style.pointerEvents = 'none';
 textRenderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(textRenderer.domElement);
 
+const skysphere = new Skysphere();
+scene.add(skysphere.getMesh());
+
 const light = new THREE.DirectionalLight(0xffffff, 1);
 light.position.set(5, 10, 7.5);
 scene.add(light);
 scene.add(new THREE.AmbientLight(0xf0f0f0));
 
-const player = new Character('./assets/E-45-Aircraft', scene, camera);
+const player = new Character(scene, camera);
 window.player = player;
 
 const board = new DebugBoard(10,600,10);
 scene.add(board.getMesh());
 
+const fpsDisplay = new TextDisplay("FPS: None");
+scene.add(fpsDisplay);
+
 const enemy1 = new Corvette(new THREE.Vector3(0,0,2), scene);
+
+window.enemyList.push(enemy1);
+
 var currentInputs = {
     'a': 0,
     'd': 0,
@@ -171,12 +185,11 @@ function loop(){
     var deltaTime = elapsed - lastFrameTime;
     if(deltaTime < FRAME_DURATION) return;
     
-    lastFrameTime += FRAME_DURATION;
+    lastFrameTime += deltaTime;
     animationCnt++;
 
     if (elapsed - lastFrameLog> 1) {
-        console.log(currentInputs);
-        console.log("FPS: ", animationCnt);
+        fpsDisplay.setText("FPS: "+animationCnt);
         animationCnt = 0;
         lastFrameLog += 1;
     }
@@ -203,12 +216,13 @@ function loop(){
         let enemyPtr = window.enemyList[i];
         if(!enemyPtr || !enemyPtr.loaded) continue;
         else{
-            enemyPtr.update()
+            enemyPtr.update(deltaTime, window.player, null);
             if(!enemyPtr.isDead()) enemyToKeep.push(enemyPtr);
         }
     }
 
     window.bulletList = toKeep;
+    skysphere.getMesh().position.copy(camera.position);
     renderer.render(scene, camera);
     textRenderer.render(scene, camera);
     currentInputs.mouseX = 0;
