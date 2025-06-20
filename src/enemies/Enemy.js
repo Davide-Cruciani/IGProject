@@ -1,5 +1,5 @@
-
-import { MTLLoader, OBJLoader } from "three/examples/jsm/Addons.js";
+import { MTLLoader, OBJLoader} from "three/examples/jsm/Addons.js";
+import { Vector3 } from "three";
 
 
 export class Enemy{
@@ -52,9 +52,28 @@ export class Enemy{
                     }, 
                     (err)=>{ console.log(err); }
                 )
-    };
-    addChild(child){ this.obj.add(child); };
-    getMesh(){ return this.obj; };
-    isDead(){ return this.dead; };
-    getWorldPosition(){ return this.obj.getWorldPosition();};
+    }
+    addChild(child){ this.obj.add(child); }
+    getMesh(){ return this.obj; }
+    isDead(){ return this.dead; }
+    getWorldPosition(){ 
+        return this.obj.getWorldPosition();
+    }
+    isSeen(object, coneSize, maxDistance){
+        const objectPos = new Vector3();
+        const currentPos = new Vector3();
+        const forward = new Vector3();
+        const objectVector = new Vector3();
+
+        object.getWorldPosition(objectPos);
+
+        this.obj.getWorldDirection(forward);
+        this.obj.getWorldPosition(currentPos);
+        objectVector.subVectors(objectPos, currentPos);
+
+        const angle = forward.angleTo(objectVector);
+        if (angle < coneSize && objectVector.length() < maxDistance)
+            return true;
+        else return false;
+    }
 }

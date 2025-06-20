@@ -1,6 +1,6 @@
 import { Enemy } from "./Enemy";
-import { TextDisplay } from "../Display";
 import { Vector3 } from "three";
+import { AlertIcon } from "../UserInterface";
 
 export class Corvette extends Enemy{
     constructor(position, scene){
@@ -10,23 +10,33 @@ export class Corvette extends Enemy{
         this.BASE_DRAG = 1.005;
         this.MAX_HP = 10;
         this.SIGHT_CONE = Math.PI/6;
+        this.SIGHT_DISTANCE = 30;
+        this.AGGRO_TIME = 10;
         this.damageReceived = 0;
         this.playerSpotted = false;
+        this.playerLastSeen = 0;
+        this.alert = new AlertIcon();
+        this.alert.setVisible(false);
+        this.obj.add(this.alert.getElement());
     }
 
     update(time, player, objectList){
         if(!player || !player.loaded) return;
+        const playerInSight = this.isSeen(player, this.SIGHT_CONE, this.SIGHT_DISTANCE); 
         if(!this.playerSpotted){
-            var position = player.getWorldPosition();
-            var sight = this.obj.getWorldDirection(new Vector3);
-            if(Math.abs(sight.angleTo(position))<this.SIGHT_CONE){
+            if(playerInSight){
                 this.playerSpotted = true;
-                this.note = new TextDisplay("!");
-                this.obj.add(this.note);
+                this.alert.setVisible(true);
+                this.playerLastSeen = 0;
             }
         }
         if(this.playerSpotted){
-
+            if (playerInSight)
+                this.playerLastSeen += time;
+            else if (this.playerLastSeen < this.AGGRO_TIME){
+                this.playerSpotted = false;
+                this.alert.setVisible(false);
+            }
             this.fireArmaments();
         }
         this.movement(time);

@@ -1,9 +1,7 @@
 import * as THREE from 'three';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { Character } from './Character.js'
-import { DebugBoard } from './DebugBoard.js';
 import { Corvette } from './enemies/Corvette.js';
-import { TextDisplay } from './Display.js';
 import { Skysphere } from './Skysphere.js';
 import { Star } from './Star.js';
 import { FPSIndicator, HUD } from './UserInterface.js';
