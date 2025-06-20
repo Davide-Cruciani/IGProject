@@ -39,7 +39,7 @@ export class Character{
                 objectLoader.setMaterials(mtl);
                 objectLoader.load('SciFi_Fighter_AK5.obj',
                     (obj)=>{
-                        obj.scale.set(0.001,0.001,0.001);
+                        obj.scale.set(0.003,0.003,0.003);
                         obj.traverse((child)=>{
                             if(child.isMesh) child.geometry.rotateX(Math.PI/2);
                         })

@@ -5,6 +5,7 @@ import { DebugBoard } from './DebugBoard.js';
 import { Corvette } from './enemies/Corvette.js';
 import { TextDisplay } from './Display.js';
 import { Skysphere } from './Skysphere.js';
+import { Star } from './Star.js';
 
 const DEBUG_ON = true;
 const DESIRED_FPS = 60;
@@ -39,21 +40,19 @@ document.body.appendChild(textRenderer.domElement);
 const skysphere = new Skysphere();
 scene.add(skysphere.getMesh());
 
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(5, 10, 7.5);
-scene.add(light);
-scene.add(new THREE.AmbientLight(0xf0f0f0));
+const light = new Star(new THREE.Vector3(0, 0, 500), 100);
+scene.add(light.getMesh());
+scene.add(light.getLight());
+
+scene.add(new THREE.AmbientLight(0xffffff,0.2));
 
 const player = new Character(scene, camera);
 window.player = player;
 
-const board = new DebugBoard(10,600,10);
-scene.add(board.getMesh());
-
 const fpsDisplay = new TextDisplay("FPS: None");
 scene.add(fpsDisplay);
 
-const enemy1 = new Corvette(new THREE.Vector3(0,0,2), scene);
+const enemy1 = new Corvette(new THREE.Vector3(0,10,0), scene);
 
 window.enemyList.push(enemy1);
 

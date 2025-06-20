@@ -21,8 +21,26 @@ export class Enemy{
                         objectLoader.setMaterials(mtl);
                         objectLoader.load(name+".obj",
                             (obj)=>{
-                                obj.scale.set(0.1,0.1,0.1);
-                                obj.rotation.set(Math.PI/2,0,0)
+                                switch (name){
+                                    case "spaceship1":
+                                        obj.scale.set(0.5,0.5,0.5);
+                                        obj.rotation.set(Math.PI/2,0,0);
+                                        break;
+                                    case "spaceship2":
+                                        obj.scale.set(0.5,0.5,0.5);
+                                        obj.rotation.set(-Math.PI/2,0,0);
+                                        break;
+
+                                    case "spaceship3":
+                                        obj.scale.set(0.5,0.5,0.5);
+                                        obj.rotation.set(Math.PI/2,0,0);
+                                        break;
+
+                                    default:
+                                        console.warn("Ship type unknown");
+                                        break;
+                                }
+                                
                                 this.obj = obj;
                                 this.obj.position.copy(position);
                                 this.loaded = true;

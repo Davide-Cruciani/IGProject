@@ -26,7 +26,7 @@ export class Corvette extends Enemy{
             }
         }
         if(this.playerSpotted){
-            
+
             this.fireArmaments();
         }
         this.movement(time);

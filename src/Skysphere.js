@@ -4,16 +4,27 @@ import * as THREE from 'three'
 export class Skysphere{
     constructor(){
         const loader = new TextureLoader();
-        const texture = loader.load('assets/skysphere.jpg', 
-            ()=>{console.log('Skysphere texture loaded');},
+        const texture = loader.load('assets/skysphereNASA.jpg', 
+            ()=>{
+                console.log('Skysphere texture loaded');
+                console.info("Texture width: ", texture.width);
+                console.info("Texture hight: ", texture.height);
+            },
             undefined,
             (err)=>{console.log('Skysphere texture err: ', err);}
         );
         texture.wrapS = THREE.ClampToEdgeWrapping;
         texture.wrapT = THREE.ClampToEdgeWrapping;
         texture.encoding = THREE.sRGBEncoding;
+
+
         const geometry = new SphereGeometry(500, 60, 40);
-        geometry.scale(-1,1,1);
+
+        const uv = geometry.attributes.uv;
+        for (let i = 0; i < uv.count; i++) {
+            uv.setX(i, 1 - uv.getX(i));
+        }
+
         const material = new MeshBasicMaterial({
             map:texture,
             side: THREE.BackSide,
