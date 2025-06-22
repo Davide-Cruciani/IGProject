@@ -47,13 +47,19 @@ export class Enemy{
     addChild(child){ this.obj.add(child); }
     getMesh(){ return this.obj; }
     isDead(){ return this.dead; }
-    getWorldPosition(){ 
+    getWorldPosition(){
+        if(!this.loaded) return new Vector3(0,0,0);
+        this.obj.updateMatrixWorld(true);
         return this.obj.getWorldPosition(new Vector3());
     }
     getWorldDirection(){
-        if (!this.loaded) return new Vector3(0,1,0);
+        if (!this.loaded) return new Vector3(0,0,1);
+        this.obj.updateMatrixWorld(true);
+
         const forward = new Vector3(0,0,1)
-        forward.applyQuaternion(this.obj.getWorldQuaternion());
+        const quaternion = new Quaternion();
+        this.obj.getWorldQuaternion(quaternion)
+        forward.applyQuaternion(quaternion);
         return forward.normalize();
     }
     isSeen(object){

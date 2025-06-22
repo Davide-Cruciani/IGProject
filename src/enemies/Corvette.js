@@ -1,6 +1,6 @@
-import { Character } from "../Character";
+import { SimpleGun } from "../weapons/SimpleGun";
 import { Enemy } from "./Enemy";
-import { Vector3, Quaternion } from "three";
+import { GameState } from "@/GameState";
 
 export class Corvette extends Enemy{
     constructor(position, scene, team){
@@ -15,15 +15,19 @@ export class Corvette extends Enemy{
         this.AGGRO_GRACE = 5;
         this.AGGRO_TIME = 10;
 
+
+        this.scene = scene;
         this.suspects = [];
         this.currentSpeed = 0;
         this.currentBehavior = 'wander';
         this.damageReceived = 0;
         this.target = null;
         this.targetLastSeen = 0;
+
+        this.mainGun = new SimpleGun(this,scene);
     }
 
-    update(time, objectList){
+    update(time){
         if (!this.loaded || !this.obj) return;
         if(!this.target && this.suspects.length > 0){
             var suspectToKeep = [];
@@ -34,13 +38,14 @@ export class Corvette extends Enemy{
                 if (distance<0 || distance>this.SIGHT_DISTANCE)
                     suspect.time -= time;    
                 else
-                    suspect.time += time * (this.SIGHT_DISTANCE - distance)/this.SIGHT_DISTANCE;
+                    suspect.time += time * (this.SIGHT_DISTANCE+5 - distance)/this.SIGHT_DISTANCE;
                 if(suspect.time > this.AGGRO_GRACE)
                     this.target = suspect.ptr;
                 else if(suspect.time > 0)
                         suspectToKeep.push(suspect);
                 closestAggro = Math.max(closestAggro, suspect.time);
             }
+
             if(this.target){
                 this.suspects = [];
                 this.alert.setAlert('red', "!");
@@ -57,21 +62,27 @@ export class Corvette extends Enemy{
             }
         }
         else if(!this.target){
-            for(let entry of objectList){
-                if(!entry || !entry.loaded) continue;
-                if(entry === this) continue;
-                if (!(entry instanceof Enemy) && !(entry instanceof Character)) continue;
-                if(entry.getTeam() !== this.team){
-                    const visible = this.isSeen(entry);
-                    if(visible>0 && visible<this.SIGHT_DISTANCE){
-                        var suspect = {
-                            ptr: entry,
-                            time:0
-                        }
-                        this.suspects.push(suspect);
+            const playerVis = this.isSeen(GameState.player);
+            if(playerVis>0 && playerVis<this.SIGHT_DISTANCE){
+                var suspect = {
+                    ptr: GameState.player,
+                    time:0
+                }
+                this.suspects.push(suspect);
+            }
+
+            for(let entry of GameState.npcs){
+                if(!entry || !entry.loaded || entry === this || entry.getTeam() === this.team) continue;
+                const visible = this.isSeen(entry);
+                if(visible>0 && visible<this.SIGHT_DISTANCE){
+                    var suspect = {
+                        ptr: entry,
+                        time:0
                     }
+                    this.suspects.push(suspect);
                 }
             }
+
             if (this.suspects.length > 0){
                 this.alert.setVisible(true);
                 this.alert.setAlert('yellow','?');
@@ -98,15 +109,15 @@ export class Corvette extends Enemy{
 
         const targetConfiguration = {
             position: this.getWorldPosition(),
-            orientation: this.obj.getWorldDirection(new Vector3())
+            orientation: this.getWorldDirection()
         };
 
         this.movement(time, targetConfiguration);
-        this.collision(objectList);
+        this.collision(GameState.objects);
     }
 
     movement(dt, configuration){
-        
+        // this.obj.translateOnAxis(new Vector3(1,0,0), dt*this.MAX_SPEED);
     }
 
 
@@ -115,7 +126,7 @@ export class Corvette extends Enemy{
     }
 
     fireArmaments(){
-
+        this.mainGun.shoot();
     }
     kill(){
         this.destroy();

@@ -1,32 +1,28 @@
 import { OBJLoader } from "three/examples/jsm/Addons.js";
 import { MTLLoader } from "three/examples/jsm/Addons.js";
-import { Bullet } from "./Bullet";
-import { Vector3, Clock, Object3D, Quaternion} from "three";
+import { Vector3, Object3D, Quaternion} from "three";
+import { SimpleGun } from "./weapons/SimpleGun";
 
 
 export class Character{
     constructor(scene, camera){
         this.ACC = 1.5;
-        this.TEAMCOLOR = 0x00ff00;
         this.ANG_SPEED = 10;
-        this.MAX_SPEED = 3
+        this.MAX_SPEED = 5
         this.BASE_DRAG = 1.005;
         this.BREAKS_DRAG = 1.2;
         this.SENSITIVITY = 0.003;
-        this.PRIMARY_CD = 0.5;
-        this.BULLET_TTL = 4;
+        
     
+        this.primaryGun = new SimpleGun(this, scene);
+
         this.team = 'player';    
         this.scene = scene;
 
         this.loaded = false;
         this.vel = 0;
         this.latVel = 0;
-
-        this.bulletCount = 0;
-        this.bulletList = [];
-        this.timeKeeper = 0;
-        this.timeLastBullet = 0;
+        
 
         const path = "assets/PlayerCharacter"
 
@@ -88,34 +84,13 @@ export class Character{
         this.movement(a,d,s,w,c,time);
 
         if (primary === 1){
-            if (this.timeKeeper - this.timeLastBullet > this.PRIMARY_CD){
-                this.shootPrimary()
-                this.timeLastBullet = this.timeKeeper;
-            }
+            this.shootPrimary();
         }
         
     }
 
     shootPrimary(){
-        var direction = new Vector3(0, 1, 0);
-        var directionQuaternion = new Quaternion();
-        directionQuaternion.multiplyQuaternions(this.root.quaternion, this.pitchObj.quaternion);
-
-        direction.applyQuaternion(directionQuaternion);
-        direction.normalize();
-
-        var position = new Vector3();
-        this.obj.getWorldPosition(position)
-
-        var bullet = new Bullet(position, direction, this.TEAMCOLOR, this);
-        const bulletRecord = {
-            "timer": new Clock(true),
-            "ttl": this.BULLET_TTL,
-            "obj": bullet,
-        }
-        window.bulletList.push(bulletRecord);
-        this.bulletCount++;
-        this.scene.add(bullet.getMesh());
+        this.primaryGun.shoot();
     }
 
     movement(keyA, keyD, keyS, keyW, keyC, time){
@@ -155,6 +130,13 @@ export class Character{
     }
 
     getWorldPosition(){ return this.obj.getWorldPosition(new Vector3()); }
-    getWorldDirection(){ return this.obj.getWorldDirection(new Vector3()); }
+    getWorldDirection(){
+        var direction = new Vector3(0, 1, 0);
+        var directionQuaternion = new Quaternion();
+        directionQuaternion.multiplyQuaternions(this.root.quaternion, this.pitchObj.quaternion);
+        direction.applyQuaternion(directionQuaternion);
+        direction.normalize();
+        return direction;
+    }
     getTeam(){ return this.team; }
 }
