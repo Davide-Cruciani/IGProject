@@ -15,7 +15,8 @@ export class Character{
         this.SENSITIVITY = 0.003;
         this.PRIMARY_CD = 0.5;
         this.BULLET_TTL = 4;
-        
+    
+        this.team = 'player';    
         this.scene = scene;
 
         this.loaded = false;
@@ -89,9 +90,8 @@ export class Character{
         if (primary === 1){
             if (this.timeKeeper - this.timeLastBullet > this.PRIMARY_CD){
                 this.shootPrimary()
-                console.log('Fired shot, Total Count: ', this.bulletCount);
                 this.timeLastBullet = this.timeKeeper;
-            }else console.log("Bullet cooldown");
+            }
         }
         
     }
@@ -144,9 +144,17 @@ export class Character{
         this.root.position.addScaledVector(right, this.latVel * time);
     }
 
+    getMesh(){ return this.obj; }
+
     add(child){
         this.obj.add(child);
     }
 
-    getWorldPosition(){ return this.obj.getWorldPosition(new Vector3()); };
+    getVelocity(){
+        return Math.sqrt(this.latVel*this.latVel + this.vel*this.vel);
+    }
+
+    getWorldPosition(){ return this.obj.getWorldPosition(new Vector3()); }
+    getWorldDirection(){ return this.obj.getWorldDirection(new Vector3()); }
+    getTeam(){ return this.team; }
 }

@@ -1,58 +1,123 @@
+import { Character } from "../Character";
 import { Enemy } from "./Enemy";
-import { Vector3 } from "three";
-import { AlertIcon } from "../UserInterface";
+import { Vector3, Quaternion } from "three";
 
 export class Corvette extends Enemy{
-    constructor(position, scene){
-        super("spaceship1", position, scene);
-        this.SPEED = 1;
+    constructor(position, scene, team){
+        super("spaceship1", position, scene, team);
+        this.MAX_SPEED = 2;
+        this.ACCELERATION = 1.5;
         this.TURN_SPEED = 0.5;
         this.BASE_DRAG = 1.005;
         this.MAX_HP = 10;
         this.SIGHT_CONE = Math.PI/6;
         this.SIGHT_DISTANCE = 30;
+        this.AGGRO_GRACE = 5;
         this.AGGRO_TIME = 10;
+
+        this.suspects = [];
+        this.currentSpeed = 0;
+        this.currentBehavior = 'wander';
         this.damageReceived = 0;
-        this.playerSpotted = false;
-        this.playerLastSeen = 0;
-        this.alert = new AlertIcon();
-        this.alert.setVisible(false);
-        this.obj.add(this.alert.getElement());
+        this.target = null;
+        this.targetLastSeen = 0;
     }
 
-    update(time, player, objectList){
-        if(!player || !player.loaded) return;
-        const playerInSight = this.isSeen(player, this.SIGHT_CONE, this.SIGHT_DISTANCE); 
-        if(!this.playerSpotted){
-            if(playerInSight){
-                this.playerSpotted = true;
+    update(time, objectList){
+        if (!this.loaded || !this.obj) return;
+        if(!this.target && this.suspects.length > 0){
+            var suspectToKeep = [];
+            var closestAggro = 0;
+            for(let suspect of this.suspects){
+                if(!suspect.ptr || !suspect.ptr.loaded) continue;
+                const distance = this.isSeen(suspect.ptr);
+                if (distance<0 || distance>this.SIGHT_DISTANCE)
+                    suspect.time -= time;    
+                else
+                    suspect.time += time * (this.SIGHT_DISTANCE - distance)/this.SIGHT_DISTANCE;
+                if(suspect.time > this.AGGRO_GRACE)
+                    this.target = suspect.ptr;
+                else if(suspect.time > 0)
+                        suspectToKeep.push(suspect);
+                closestAggro = Math.max(closestAggro, suspect.time);
+            }
+            if(this.target){
+                this.suspects = [];
+                this.alert.setAlert('red', "!");
                 this.alert.setVisible(true);
-                this.playerLastSeen = 0;
+            }else{
+                this.suspects = suspectToKeep;
+                if (this.suspects.length > 0){
+                    this.alert.setAlert("yellow", "?");
+                    this.alert.setVisible(true);
+                }
+                else{
+                    this.alert.setVisible(false);
+                }
             }
         }
-        if(this.playerSpotted){
-            if (playerInSight)
-                this.playerLastSeen += time;
-            else if (this.playerLastSeen < this.AGGRO_TIME){
-                this.playerSpotted = false;
+        else if(!this.target){
+            for(let entry of objectList){
+                if(!entry || !entry.loaded) continue;
+                if(entry === this) continue;
+                if (!(entry instanceof Enemy) && !(entry instanceof Character)) continue;
+                if(entry.getTeam() !== this.team){
+                    const visible = this.isSeen(entry);
+                    if(visible>0 && visible<this.SIGHT_DISTANCE){
+                        var suspect = {
+                            ptr: entry,
+                            time:0
+                        }
+                        this.suspects.push(suspect);
+                    }
+                }
+            }
+            if (this.suspects.length > 0){
+                this.alert.setVisible(true);
+                this.alert.setAlert('yellow','?');
+            }
+        }
+        else{
+            const visible = this.isSeen(this.target);
+            if(visible>0 && visible<this.SIGHT_DISTANCE){
+                this.targetLastSeen = 0;
+                this.fireArmaments();
+                this.alert.setAlert('red', '!');
+                this.alert.setVisible(true);
+            }else if(this.targetLastSeen > this.AGGRO_TIME){
+                this.target = null;
+                this.targetLastSeen = 0;
                 this.alert.setVisible(false);
+            }else{
+                this.targetLastSeen+=time;
+                this.alert.setAlert('yellow',"!");
+                this.alert.setVisible(true);
             }
-            this.fireArmaments();
         }
-        this.movement(time);
+
+
+        const targetConfiguration = {
+            position: this.getWorldPosition(),
+            orientation: this.obj.getWorldDirection(new Vector3())
+        };
+
+        this.movement(time, targetConfiguration);
         this.collision(objectList);
     }
 
-    movement(){
+    movement(dt, configuration){
         
     }
 
 
-    collision(){
+    collision(objectList){
 
     }
 
     fireArmaments(){
 
+    }
+    kill(){
+        this.destroy();
     }
 }

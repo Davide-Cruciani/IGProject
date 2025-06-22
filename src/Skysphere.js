@@ -7,8 +7,6 @@ export class Skysphere{
         const texture = loader.load('assets/skysphereNASA.jpg', 
             ()=>{
                 console.log('Skysphere texture loaded');
-                console.info("Texture width: ", texture.width);
-                console.info("Texture hight: ", texture.height);
             },
             undefined,
             (err)=>{console.log('Skysphere texture err: ', err);}

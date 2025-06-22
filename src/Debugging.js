@@ -1,4 +1,5 @@
-import { PlaneGeometry, Mesh, CanvasTexture, DoubleSide, MeshPhongMaterial } from "three";
+import * as THREE from "three";
+import { Vector3 } from "three";
 
 function createCheckerboardTexture(size = 600, squares = 10) {
   const canvas = document.createElement('canvas');
@@ -15,20 +16,16 @@ function createCheckerboardTexture(size = 600, squares = 10) {
     }
   }
 
-  const texture = new CanvasTexture(canvas);
+  const texture = new THREE.CanvasTexture(canvas);
   return texture;
 }
 
-
-
-
-
 export class DebugBoard{
     constructor(size, resolution, squares){
-        this.geometry = new PlaneGeometry(size, size);
+        this.geometry = new THREE.PlaneGeometry(size, size);
         this.texture = createCheckerboardTexture(resolution, squares);
-        this.material = new MeshPhongMaterial({ map: this.texture, side: DoubleSide });
-        this.board = new Mesh(this.geometry, this.material);
+        this.material = new THREE.MeshPhongMaterial({ map: this.texture, side: DoubleSide });
+        this.board = new THREE.Mesh(this.geometry, this.material);
     }
 
     getMesh(){ return this.board; };

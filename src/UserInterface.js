@@ -64,4 +64,15 @@ export class AlertIcon{
     setVisible(setting){
         this.sprite.visible = setting;
     }
+
+    setAlert(color, text){
+        const ctx = this.canvas.getContext('2d');
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.fillStyle = color;
+        ctx.font = '48px bold sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 32, 32);
+        this.texture.needsUpdate = true;
+    }
 }

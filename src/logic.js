@@ -14,6 +14,8 @@ var animationCnt = 0;
 var lastFrameTime = 0;
 var lastFrameLog = 0;
 document.body.style.cursor = 'none';
+
+window.objectList = [];
 window.bulletList = [];
 window.enemyList = [];
 
@@ -54,7 +56,7 @@ const player = new Character(scene, camera);
 window.player = player;
 
 
-const enemy1 = new Corvette(new THREE.Vector3(0,10,0), scene);
+const enemy1 = new Corvette(new THREE.Vector3(0,30,0), scene, "team1");
 
 window.enemyList.push(enemy1);
 
@@ -75,26 +77,21 @@ function keydownHandler(event){
         case 'a':
             currentInputs['a'] = (event.shiftKey)? 2: 1;
             currentInputs['d'] = 0;
-            if (DEBUG_ON) console.log(event.key);
             break;
         case 'c':
             currentInputs['c'] = 1;
-            if (DEBUG_ON) console.log(event.key);
             break;
         case 'd':
             currentInputs['d'] = (event.shiftKey)? 2: 1;
             currentInputs['a'] = 0;
-            if (DEBUG_ON) console.log(event.key);
             break;
         case 'w':
             currentInputs['w'] = (event.shiftKey)? 2: 1;
             currentInputs['s'] = 0;
-            if (DEBUG_ON) console.log(event.key);
             break;
         case 's':
             currentInputs['s'] = (event.shiftKey)? 2: 1;
             currentInputs['w'] = 0;
-            if (DEBUG_ON) console.log(event.key);
             break;
         default:
             if (DEBUG_ON) console.log('Unknown key: ' + event.key);
@@ -181,6 +178,9 @@ document.addEventListener('wheel', (event)=>{
     camera.translateZ(event.deltaY/100);
 })
 
+window.objectList.push(player);
+window.objectList.push(enemy1);
+
 function loop(){
     const elapsed = clock.getElapsedTime();
     var deltaTime = elapsed - lastFrameTime;
@@ -217,8 +217,14 @@ function loop(){
         let enemyPtr = window.enemyList[i];
         if(!enemyPtr || !enemyPtr.loaded) continue;
         else{
-            enemyPtr.update(deltaTime, window.player, null);
-            if(!enemyPtr.isDead()) enemyToKeep.push(enemyPtr);
+            enemyPtr.update(deltaTime, window.objectList);
+            if(!enemyPtr.isDead()){
+                enemyToKeep.push(enemyPtr);
+                
+            }
+            else{
+                enemyPtr.kill();
+            }
         }
     }
 
