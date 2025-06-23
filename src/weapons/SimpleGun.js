@@ -1,7 +1,6 @@
 import { Clock } from "three";
 import { Bullet } from "./Bullet";
 import { GameState } from "@/GameState";
-console.log("GameState in simpleGun.js", GameState);
 
 
 export class SimpleGun{
@@ -16,7 +15,7 @@ export class SimpleGun{
     }
 
     shoot(){
-        console.log("Shooting command received by gun");
+        // console.log("Shooting command received by gun");
         const elapsed = this.timeKeeper.getElapsedTime();
         if (elapsed - this.timeLastBullet > this.PRIMARY_CD){
                 const shipPos = this.ship.getWorldPosition();
@@ -30,9 +29,9 @@ export class SimpleGun{
                     ptr: bullet,
                 }
                 clock.start();
-                console.log('Bullets before :>> ', GameState.bullets.length);
+                // console.log('Bullets before :>> ', GameState.bullets.length);
                 GameState.bullets.push(bulletRecord);
-                console.log('Bullet after :>> ', GameState.bullets.length);
+                // console.log('Bullet after :>> ', GameState.bullets.length);
                 this.scene.add(bullet.getMesh());
             }
     }

@@ -13,7 +13,7 @@ export class Corvette extends Enemy{
         this.SIGHT_CONE = Math.PI/6;
         this.SIGHT_DISTANCE = 30;
         this.AGGRO_GRACE = 5;
-        this.AGGRO_TIME = 10;
+        this.AGGRO_TIME = 5;
 
 
         this.scene = scene;
@@ -30,63 +30,10 @@ export class Corvette extends Enemy{
     update(time){
         if (!this.loaded || !this.obj) return;
         if(!this.target && this.suspects.length > 0){
-            var suspectToKeep = [];
-            var closestAggro = 0;
-            for(let suspect of this.suspects){
-                if(!suspect.ptr || !suspect.ptr.loaded) continue;
-                const distance = this.isSeen(suspect.ptr);
-                if (distance<0 || distance>this.SIGHT_DISTANCE)
-                    suspect.time -= time;    
-                else
-                    suspect.time += time * (this.SIGHT_DISTANCE+5 - distance)/this.SIGHT_DISTANCE;
-                if(suspect.time > this.AGGRO_GRACE)
-                    this.target = suspect.ptr;
-                else if(suspect.time > 0)
-                        suspectToKeep.push(suspect);
-                closestAggro = Math.max(closestAggro, suspect.time);
-            }
-
-            if(this.target){
-                this.suspects = [];
-                this.alert.setAlert('red', "!");
-                this.alert.setVisible(true);
-            }else{
-                this.suspects = suspectToKeep;
-                if (this.suspects.length > 0){
-                    this.alert.setAlert("yellow", "?");
-                    this.alert.setVisible(true);
-                }
-                else{
-                    this.alert.setVisible(false);
-                }
-            }
+            this.checkOnSuspects(time);
         }
         else if(!this.target){
-            const playerVis = this.isSeen(GameState.player);
-            if(playerVis>0 && playerVis<this.SIGHT_DISTANCE){
-                var suspect = {
-                    ptr: GameState.player,
-                    time:0
-                }
-                this.suspects.push(suspect);
-            }
-
-            for(let entry of GameState.npcs){
-                if(!entry || !entry.loaded || entry === this || entry.getTeam() === this.team) continue;
-                const visible = this.isSeen(entry);
-                if(visible>0 && visible<this.SIGHT_DISTANCE){
-                    var suspect = {
-                        ptr: entry,
-                        time:0
-                    }
-                    this.suspects.push(suspect);
-                }
-            }
-
-            if (this.suspects.length > 0){
-                this.alert.setVisible(true);
-                this.alert.setAlert('yellow','?');
-            }
+            this.findSuspects();
         }
         else{
             const visible = this.isSeen(this.target);
@@ -116,13 +63,102 @@ export class Corvette extends Enemy{
         this.collision(GameState.objects);
     }
 
-    movement(dt, configuration){
-        // this.obj.translateOnAxis(new Vector3(1,0,0), dt*this.MAX_SPEED);
+    movement(time, configuration){
+        const gravityVector = this.computeGravity();
+        switch (this.currentBehavior) {
+            case 'wander':
+                
+                break;
+        
+            case 'chase':
+
+                break;
+
+            case 'follow':
+
+                break;
+
+            default:
+                throw new Error('Unknown behavior');
+        }
+
+        this.obj.translateOnAxis(gravityVector, time);
+
     }
 
 
-    collision(objectList){
+    collision(){
 
+    }
+
+    
+
+    checkOnSuspects(time){
+        this.suspects = this.suspects.filter((suspect)=>{
+            if(!suspect.ptr || !suspect.ptr.loaded) return true;
+            const distance = this.isSeen(suspect.ptr);
+            
+            if (distance<0 || distance>this.SIGHT_DISTANCE)
+                suspect.time -= time;    
+            else
+                suspect.time += time * (this.SIGHT_DISTANCE+5 - distance)/this.SIGHT_DISTANCE;
+
+            if(suspect.time > this.AGGRO_GRACE){
+                this.target = suspect.ptr;
+                return false;
+            }
+            return (suspect.time > 0)
+        });
+
+        if(this.target){
+            this.suspects = [];
+            this.alert.setAlert('red', "!");
+            this.alert.setVisible(true);
+        }else{
+            if (this.suspects.length > 0){
+                this.alert.setAlert("yellow", "?");
+                this.alert.setVisible(true);
+            }
+            else{
+                this.alert.setVisible(false);
+            }
+        }
+    }
+
+    findSuspects(){
+
+        const candidates = [];
+
+        const playerVis = this.isSeen(GameState.player);
+        if(playerVis>0 && playerVis<this.SIGHT_DISTANCE){
+            var suspect = {
+                ptr: GameState.player,
+                time:0
+            }
+            candidates.push(suspect);
+        }
+
+        for(let entry of GameState.npcs){
+            if(!entry || !entry.loaded || entry === this || entry.getTeam() === this.team) continue;
+            const visible = this.isSeen(entry);
+            if(visible>0 && visible<this.SIGHT_DISTANCE){
+                var suspect = {
+                    ptr: entry,
+                    time:0
+                }
+                candidates.push(suspect);
+            }
+        }
+
+        candidates.forEach((candidate)=>{
+            const exists = this.suspects.find((val)=> val.ptr === candidate);
+            if (!exists) this.suspects.push({ptr:candidate, time:0});
+        })
+
+        if (this.suspects.length > 0){
+            this.alert.setVisible(true);
+            this.alert.setAlert('yellow','?');
+        }
     }
 
     fireArmaments(){

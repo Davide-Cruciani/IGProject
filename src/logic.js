@@ -3,16 +3,18 @@ import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { Character } from './Character.js'
 import { Corvette } from './enemies/Corvette.js';
 import { Skysphere } from './Skysphere.js';
-import { Star } from './Star.js';
+import { Planet, Star } from './Cosmology.js';
 import { FPSIndicator, HUD } from './UserInterface.js';
 import { GameState } from '@/GameState';
 import { KeyboardInputs } from './KeyboardInputs.js';
-console.log("GameState in logic.js", GameState);
+import { DebugBoard } from './Debugging.js';
 
-
+const DENSITY = 5;
 const DEBUG_ON = true;
 const DESIRED_FPS = 60;
 const FRAME_DURATION = 1/DESIRED_FPS;
+const ZOOM_SENSITIVITY = 0.001;
+
 
 var animationCnt = 0;
 var lastFrameTime = 0;
@@ -22,7 +24,7 @@ document.body.style.cursor = 'none';
 
 const scene = new THREE.Scene();
 const clock = new THREE.Clock();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1200);
 
 const renderer = new THREE.WebGLRenderer();
 const canvas = renderer.domElement;
@@ -48,17 +50,53 @@ hud.addChild(fpsDisplay.getElement());
 const skysphere = new Skysphere();
 scene.add(skysphere.getMesh());
 
-const light = new Star(new THREE.Vector3(0, 0, 500), 100);
-scene.add(light.getGroup());
+const sun = new Star(new THREE.Vector3(0, 0, 0), 100, 10000);
+scene.add(sun.getMesh());
+GameState.sun = sun;
+GameState.planets.push(sun);
+
+function generatePlanetPosition(){
+    const sunPos = GameState.sun.getWorldPosition();
+
+    const theta = Math.random() * 2 * Math.PI;
+    const phi = Math.acos(2 * Math.random() - 1);
+
+    const radius = 300 + Math.random() * 200;
+
+    const x = radius * Math.sin(phi) * Math.cos(theta);
+    const y = radius * Math.sin(phi) * Math.sin(theta);
+    const z = radius * Math.cos(phi);
+
+    const offset = new THREE.Vector3(x, y, z);
+    return sunPos.clone().add(offset);
+}
+
+
+for(let i=0; i<5; i++){
+    const planetPosition = generatePlanetPosition();
+    const color = new THREE.Color(Math.random(), Math.random(), Math.random());
+    const size = Math.random() * 50 + 10
+    const mass = size * DENSITY;
+    const planet = new Planet(planetPosition, size, mass, color);
+    scene.add(planet.getMesh());
+    GameState.planets.push(planet);
+    planet.initPlanetSpeed(sun.getWorldPosition());
+
+}
 
 scene.add(new THREE.AmbientLight(0xffffff,0.2));
 
-const player = new Character(scene, camera);
+const player = new Character(scene, camera, new THREE.Vector3(0,-10,200));
 GameState.player = player;
 
 
-const enemy1 = new Corvette(new THREE.Vector3(0,30,0), scene, "team1");
+const enemy1 = new Corvette(new THREE.Vector3(0,30,200), scene, "team1");
 GameState.npcs.push(enemy1);
+
+
+// const debugTable = new  DebugBoard(200, 200, 20);
+// scene.add(debugTable.getMesh());
+// debugTable.setPosition(new THREE.Vector3(0, 0, 180));
 
 
 function keydownHandler(event){
@@ -167,7 +205,8 @@ document.addEventListener('pointerlockchange', ()=>{
 })
 
 document.addEventListener('wheel', (event)=>{
-    camera.translateZ(event.deltaY/100);
+    GameState.zoom.level += event.deltaY * ZOOM_SENSITIVITY;
+    GameState.zoom.level = Math.min(GameState.zoom.max, Math.max(GameState.zoom.level, GameState.zoom.min));
 })
 
 GameState.objects.push(player);
@@ -207,7 +246,6 @@ function loop(){
     else if (!GameState.player.loaded)
         console.log("Player model not loaded yet");
 
-    console.log(GameState.bullets.length);
     GameState.bullets = GameState.bullets.filter((bullet)=>{
         const valid = bullet.timer.getElapsedTime() < bullet.ttl;
         if(!valid){
@@ -219,8 +257,12 @@ function loop(){
         return valid;
     });
     
+    GameState.planets.forEach((planet)=>{
+        planet.update(deltaTime);
+    })
+
     GameState.npcs = GameState.npcs.filter((npcPtr)=>{
-        if(!npcPtr || !npcPtr.loaded) true;
+        if(!npcPtr || !npcPtr.loaded) return true;
         else{
             npcPtr.update(deltaTime);
             const dead = npcPtr.isDead();

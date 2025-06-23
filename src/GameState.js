@@ -2,7 +2,13 @@ export const GameState = {
     npcs:[],
     objects:[],
     bullets:[],
-    player:null
+    planets:[],
+    player:null,
+    sun:null,
+    zoom:{
+        level:1,
+        speed:0.1,
+        min:0.5,
+        max:3
+    }
 }
-
-console.log("GameState instance:", GameState);

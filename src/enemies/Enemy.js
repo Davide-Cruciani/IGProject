@@ -1,6 +1,7 @@
 import { MTLLoader, OBJLoader} from "three/examples/jsm/Addons.js";
 import { Vector3, Quaternion } from "three";
 import { AlertIcon } from "../UserInterface";
+import { GameState } from "@/GameState";
 export class Enemy{
     constructor(name, position, scene, team){
         this.scene = scene;
@@ -62,6 +63,26 @@ export class Enemy{
         forward.applyQuaternion(quaternion);
         return forward.normalize();
     }
+    
+    computeGravity(){
+        var sumVector = new Vector3(0,0,0);
+        const shipPos = this.getWorldPosition();
+        GameState.planets.forEach((planet) => {
+            const planetPos = planet.getWorldPosition();
+
+            const vectorToPlanet = new Vector3();
+            vectorToPlanet.subVectors(planetPos, shipPos);
+
+            const distance = vectorToPlanet.length();
+            if (distance < 0 || isNaN(distance)) return;
+            const force = planet.getMass() / (distance*distance);
+
+            sumVector.add(vectorToPlanet.clone().normalize().multiplyScalar(force));
+        });
+
+        return sumVector;
+    }
+
     isSeen(object){
         if (!this.obj || !this.loaded || !object.loaded || !object) return -1;
         this.obj.updateMatrixWorld(true);

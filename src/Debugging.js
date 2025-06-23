@@ -24,9 +24,10 @@ export class DebugBoard{
     constructor(size, resolution, squares){
         this.geometry = new THREE.PlaneGeometry(size, size);
         this.texture = createCheckerboardTexture(resolution, squares);
-        this.material = new THREE.MeshPhongMaterial({ map: this.texture, side: DoubleSide });
+        this.material = new THREE.MeshPhongMaterial({ map: this.texture, side: THREE.DoubleSide });
         this.board = new THREE.Mesh(this.geometry, this.material);
     }
 
     getMesh(){ return this.board; };
+    setPosition(position){ this.board.position.copy(position); }
 } 

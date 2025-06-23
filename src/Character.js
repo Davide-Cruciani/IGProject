@@ -2,22 +2,26 @@ import { OBJLoader } from "three/examples/jsm/Addons.js";
 import { MTLLoader } from "three/examples/jsm/Addons.js";
 import { Vector3, Object3D, Quaternion} from "three";
 import { SimpleGun } from "./weapons/SimpleGun";
+import { GameState } from "@/GameState";
 
 
 export class Character{
-    constructor(scene, camera){
-        this.ACC = 1.5;
+    constructor(scene, camera, position){
+        this.ACC = 3;
         this.ANG_SPEED = 10;
-        this.MAX_SPEED = 5
+        this.MAX_SPEED = 10;
         this.BASE_DRAG = 1.005;
         this.BREAKS_DRAG = 1.2;
         this.SENSITIVITY = 0.003;
-        
+        this.MAX_PITCH = Math.PI / 2 * 0.98; 
     
         this.primaryGun = new SimpleGun(this, scene);
 
         this.team = 'player';    
         this.scene = scene;
+        this.camera = camera;
+        this.yaw = 0;
+        this.pitch = 0;
 
         this.loaded = false;
         this.vel = 0;
@@ -43,16 +47,11 @@ export class Character{
                         this.obj = obj;
                         this.loaded = true;
                         this.root = new Object3D();
-                        this.pitchObj = new Object3D();
+                        this.root.position.copy(position);
 
-                        this.root.add(this.pitchObj);
-                        this.pitchObj.add(this.obj);
-                        this.pitchObj.add(camera);
+                        this.root.add(this.obj);
 
                         scene.add(this.root);
-                        camera.position.set(0,-5,3);
-                        var offset = new Vector3(0,0,3)
-                        camera.lookAt(offset.add(this.pitchObj.position));
                     },
                     undefined, 
                     (err)=>{ console.log(err); }
@@ -67,17 +66,32 @@ export class Character{
         
         this.timeKeeper += time;
 
+        var mouseX = keys['mouseX'];
+        var mouseY = keys['mouseY'];
+
+        if (mouseX !== 0) this.yaw -= mouseX * this.SENSITIVITY;
+        if (mouseY !== 0) this.pitch -= mouseY * this.SENSITIVITY;
+
+        this.pitch = Math.max(-this.MAX_PITCH, Math.min(this.MAX_PITCH, this.pitch));
+
+
+        const yawQuat = new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), this.yaw);
+        const pitchQuat = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), this.pitch);
+
+        const combinedQuat = new Quaternion().multiplyQuaternions(yawQuat, pitchQuat);
+
+        this.root.quaternion.copy(combinedQuat);
+
+
+        this.handleCamera(combinedQuat);
+
         var a = keys['a'];
         var d = keys['d'];
         var w = keys['w'];
         var s = keys['s'];
         var c = keys['c'];
 
-        var mouseX = keys['mouseX'];
-        var mouseY = keys['mouseY'];
 
-        if (mouseX !== 0) this.root.rotation.z -= mouseX * this.SENSITIVITY;
-        if (mouseY !== 0) this.pitchObj.rotation.x -= mouseY * this.SENSITIVITY;
 
         var primary = keys['mb0'];
 
@@ -91,6 +105,25 @@ export class Character{
 
     shootPrimary(){
         this.primaryGun.shoot();
+    }
+
+    handleCamera(combinedQuat){
+        const shipPos = this.root.getWorldPosition(new Vector3());
+
+        const baseOffset = new Vector3(0,-5,3);
+        const cameraOffset = baseOffset.clone().multiplyScalar(GameState.zoom.level);
+        cameraOffset.applyQuaternion(combinedQuat);
+
+        const cameraPos = shipPos.clone().add(cameraOffset);
+        this.camera.position.copy(cameraPos);
+        
+        const forward = new Vector3(0,1,0);
+        forward.applyQuaternion(combinedQuat);
+
+        const lookPos = shipPos.clone().add(forward.multiplyScalar(10));
+
+        this.camera.up.set(0,0,1);
+        this.camera.lookAt(lookPos);
     }
 
     movement(keyA, keyD, keyS, keyW, keyC, time){
@@ -109,11 +142,9 @@ export class Character{
         var right = new Vector3(1, 0, 0);
         var forward = new Vector3(0, 1, 0)
         
-        const combinedQuat = new Quaternion();
-        combinedQuat.multiplyQuaternions(this.root.quaternion, this.pitchObj.quaternion);
         
-        forward.applyQuaternion(combinedQuat);
-        right.applyQuaternion(combinedQuat);
+        forward.applyQuaternion(this.root.quaternion);
+        right.applyQuaternion(this.root.quaternion);
         
         this.root.position.addScaledVector(forward, this.vel * time);
         this.root.position.addScaledVector(right, this.latVel * time);
@@ -131,10 +162,8 @@ export class Character{
 
     getWorldPosition(){ return this.obj.getWorldPosition(new Vector3()); }
     getWorldDirection(){
-        var direction = new Vector3(0, 1, 0);
-        var directionQuaternion = new Quaternion();
-        directionQuaternion.multiplyQuaternions(this.root.quaternion, this.pitchObj.quaternion);
-        direction.applyQuaternion(directionQuaternion);
+        const direction = new Vector3(0, 1, 0); // Local forward
+        direction.applyQuaternion(this.root.quaternion); // Apply combined rotation
         direction.normalize();
         return direction;
     }

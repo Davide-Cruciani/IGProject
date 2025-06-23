@@ -16,7 +16,7 @@ export class Skysphere{
         texture.encoding = THREE.sRGBEncoding;
 
 
-        const geometry = new SphereGeometry(500, 60, 40);
+        const geometry = new SphereGeometry(1000, 60, 40);
 
         const uv = geometry.attributes.uv;
         for (let i = 0; i < uv.count; i++) {
