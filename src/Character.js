@@ -1,8 +1,9 @@
 import { OBJLoader } from "three/examples/jsm/Addons.js";
 import { MTLLoader } from "three/examples/jsm/Addons.js";
 import { Vector3, Object3D, Quaternion} from "three";
-import { SimpleGun } from "./weapons/SimpleGun";
+import * as WEAPON from "./weapons/Weapons";
 import { GameState } from "@/GameState";
+import { PeripheralsInputs } from "./PeripheralsInputs";
 
 
 export class Character{
@@ -14,8 +15,15 @@ export class Character{
         this.BREAKS_DRAG = 1.2;
         this.SENSITIVITY = 0.003;
         this.MAX_PITCH = Math.PI / 2 * 0.98; 
-    
-        this.primaryGun = new SimpleGun(this, scene);
+        
+        this.weaponList = []
+        this.weaponList.push(new WEAPON.Shotgun(this,scene));
+        this.weaponList.push(new WEAPON.SimpleGun(this, scene))
+
+        this.selectedWeapon = 0;
+        
+        this.maxHp = 100;
+        this.currentHp = 100;
 
         this.team = 'player';    
         this.scene = scene;
@@ -62,17 +70,14 @@ export class Character{
         )
     };
 
-    update(keys, time){
+    update(time){
         
         this.timeKeeper += time;
 
-        var mouseX = keys['mouseX'];
-        var mouseY = keys['mouseY'];
+        this.yaw -= PeripheralsInputs['mouseX'] * this.SENSITIVITY;
+        this.pitch -= PeripheralsInputs['mouseY'] * this.SENSITIVITY;
 
-        if (mouseX !== 0) this.yaw -= mouseX * this.SENSITIVITY;
-        if (mouseY !== 0) this.pitch -= mouseY * this.SENSITIVITY;
-
-        this.pitch = Math.max(-this.MAX_PITCH, Math.min(this.MAX_PITCH, this.pitch));
+        this.pitch = Math.max(-this.MAX_PITCH + (Math.PI/12), Math.min(this.MAX_PITCH, this.pitch));
 
 
         const yawQuat = new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), this.yaw);
@@ -85,26 +90,43 @@ export class Character{
 
         this.handleCamera(combinedQuat);
 
-        var a = keys['a'];
-        var d = keys['d'];
-        var w = keys['w'];
-        var s = keys['s'];
-        var c = keys['c'];
+        const key_q = PeripheralsInputs['q'];
+        const key_e = PeripheralsInputs['e'];
 
-
-
-        var primary = keys['mb0'];
-
-        this.movement(a,d,s,w,c,time);
-
-        if (primary === 1){
-            this.shootPrimary();
+        if (key_q === 1) {
+            this.selectedWeapon--;
+            PeripheralsInputs['q'] = 0;
         }
+        if (key_e === 1){
+            this.selectedWeapon++;
+            PeripheralsInputs['e'] = 0;
+        }
+        if(this.selectedWeapon >= this.weaponList.length) this.selectedWeapon = 0;
+        if(this.selectedWeapon < 0) this.selectedWeapon = this.weaponList.length-1;
+
+        const key_a = PeripheralsInputs['a'];
+        const key_d = PeripheralsInputs['d'];
+        const key_w = PeripheralsInputs['w'];
+        const key_s = PeripheralsInputs['s'];
+        const key_c = PeripheralsInputs['c'];
+
+
+
+        const firePrimary = PeripheralsInputs['mb0'];
+
+        this.movement(key_a,key_d,key_s,key_w,key_c,time);
+
+        if (firePrimary === 1)
+            this.fireSelectedWeapon();
         
     }
 
-    shootPrimary(){
-        this.primaryGun.shoot();
+    fireSelectedWeapon(){
+        this.weaponList[this.selectedWeapon].shoot();
+    }
+
+    getEquippedWeapon(){
+        return this.weaponList[this.selectedWeapon];
     }
 
     handleCamera(combinedQuat){
@@ -168,4 +190,6 @@ export class Character{
         return direction;
     }
     getTeam(){ return this.team; }
+    getHealth(){ return this.currentHp; }
+    getMaxHealth() {return this.maxHp; }
 }

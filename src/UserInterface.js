@@ -1,38 +1,103 @@
-import { CanvasTexture, Sprite, SpriteMaterial } from "three";
-import { CSS2DObject } from "three/examples/jsm/Addons.js";
+import { CanvasTexture, Color, Sprite, SpriteMaterial } from "three";
+import { GameState } from '@/GameState'
 
 export class HUD{
     constructor(){
-        this.htmlElement = document.createElement('div');
-        this.htmlElement.id = 'hud';
-        document.body.append(this.htmlElement);
+        this.mainElement = document.createElement('div');
+        this.mainElement.id = 'hud';
+        document.body.append(this.mainElement);
+        this.list = [];
     }
 
-    addChild(child){
-        this.htmlElement.appendChild(child)
+    addElement(element){
+        const elem = element.getElement();
+        this.mainElement.appendChild(elem);
+        this.list.push(element);
     }
 
-    removeChild(child){
-        this.htmlElement.removeChild(child);
+    removeElement(element){
+        const elem = element.getElement();
+        this.list = this.list.filter((e)=>{ return !(e === element)});
+        if (this.mainElement.contains(elem))
+            this.mainElement.removeChild(elem);
+    }
+
+    update(){
+        this.list.forEach((elem)=>elem.update());
     }
 
     destroy(){
-        document.removeChild(this.htmlElement);
+        document.removeChild(this.mainElement);
     }
 }
 
-export class FPSIndicator{
-    constructor(text){
-        this.htmlElement = document.createElement('div');
-        this.htmlElement.id = 'fps-counter';
-        this.htmlElement.textContent = text;
-    }
-    setText(text){
-        this.htmlElement.textContent = text;
+class HudElement{
+    constructor(){
+        this.mainElement = document.createElement('div');
     }
     getElement(){
-        return this.htmlElement;
+        return this.mainElement;
     }
+
+    update(){}
+
+}
+
+
+export class FPSIndicator extends HudElement{
+    constructor(){
+        super();
+        this.mainElement.id = 'fps-counter';
+    }
+    update(){
+        const elapsed = GameState.clock.getElapsedTime();
+        if (elapsed - GameState.fps.sinceLastLog> 1) {
+                this.mainElement.textContent = "FPS: "+ GameState.fps.frameCount;
+                GameState.fps.frameCount = 0;
+                GameState.fps.sinceLastLog += 1;
+            }
+    }
+}
+
+export class HealthBar extends HudElement{
+    constructor(){
+        super();
+        this.mainElement.id = 'health-container'
+        this.filledBar = document.createElement('div');
+        this.filledBar.id = 'health-bar'
+        this.mainElement.appendChild(this.filledBar);
+    }
+
+    update(){
+        if (!GameState.player || typeof GameState.player.getHealth !== 'function') return;
+        const hp = GameState.player.getHealth();
+        const maxHp = GameState.player.getMaxHealth();
+        const percentage = Math.max(hp/maxHp*100, 0);
+        this.filledBar.style.width = `${percentage}%`;
+        if (percentage > 50)
+            this.filledBar.style.backgroundColor = 'green';
+        else if (percentage > 30)
+            this.filledBar.style.backgroundColor = 'orange';
+        else if (percentage > 15)
+            this.filledBar.style.backgroundColor = 'red';
+        else
+            this.filledBar.style.backgroundColor = 'darkred';
+    }
+
+}
+
+export class WeaponIndicator extends HudElement{
+    constructor(){
+        super();
+        this.mainElement.id = 'weapon-indicator';
+    }
+
+    update(){
+        if (!GameState.player || typeof GameState.player.getEquippedWeapon !== 'function') return;
+        const weaponName = GameState.player.getEquippedWeapon().getName();
+        this.mainElement.textContent = (weaponName)? `Equipped: ${weaponName}`: 'No Weapon';
+    }
+
 }
 
 export class AlertIcon{
@@ -76,3 +141,4 @@ export class AlertIcon{
         this.texture.needsUpdate = true;
     }
 }
+

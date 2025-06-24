@@ -1,29 +1,28 @@
 import * as THREE from 'three';
+import * as IOHAND from './PeripheralsInputs.js';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { Character } from './Character.js'
 import { Corvette } from './enemies/Corvette.js';
 import { Skysphere } from './Skysphere.js';
-import { Planet, Star } from './Cosmology.js';
-import { FPSIndicator, HUD } from './UserInterface.js';
+import { Planet, Star, generatePlanetPosition, BLOOM_LAYER } from './Cosmology.js';
+import { FPSIndicator, HealthBar, HUD, WeaponIndicator } from './UserInterface.js';
 import { GameState } from '@/GameState';
-import { KeyboardInputs } from './KeyboardInputs.js';
+import { EffectComposer } from 'three/examples/jsm/Addons.js';
+import { UnrealBloomPass } from 'three/examples/jsm/Addons.js';
+import { RenderPass } from 'three/examples/jsm/Addons.js';
+import { BloomMaterialHandler } from './BloomMaterialHandler.js';
 import { DebugBoard } from './Debugging.js';
 
 const DENSITY = 5;
-const DEBUG_ON = true;
 const DESIRED_FPS = 60;
 const FRAME_DURATION = 1/DESIRED_FPS;
 const ZOOM_SENSITIVITY = 0.001;
 
-
-var animationCnt = 0;
-var lastFrameTime = 0;
-var lastFrameLog = 0;
 document.body.style.cursor = 'none';
 
 
 const scene = new THREE.Scene();
-const clock = new THREE.Clock();
+GameState.clock = new THREE.Clock();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1200);
 
 const renderer = new THREE.WebGLRenderer();
@@ -33,6 +32,17 @@ renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMappingExposure = 2.0;
 document.body.appendChild(canvas);
 
+const renderScene = new RenderPass(scene, camera);
+const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    2.0,0.4,0.1
+);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(renderScene);
+composer.addPass(bloomPass);
+
+const bloomMtlHandler = new BloomMaterialHandler();
 
 const textRenderer = new CSS2DRenderer();
 textRenderer.domElement.style.position = 'absolute';
@@ -44,32 +54,22 @@ document.body.appendChild(textRenderer.domElement);
 const hud = new HUD();
 
 const fpsDisplay = new FPSIndicator("FPS: ---");
-hud.addChild(fpsDisplay.getElement());
+hud.addElement(fpsDisplay);
+
+const healthBar = new HealthBar();
+hud.addElement(healthBar);
+
+const weaponIndicator = new WeaponIndicator();
+hud.addElement(weaponIndicator);
 
 
 const skysphere = new Skysphere();
 scene.add(skysphere.getMesh());
 
-const sun = new Star(new THREE.Vector3(0, 0, 0), 100, 10000);
+const sun = new Star(new THREE.Vector3(0, 0, 0), 100, 50000);
 scene.add(sun.getMesh());
 GameState.sun = sun;
 GameState.planets.push(sun);
-
-function generatePlanetPosition(){
-    const sunPos = GameState.sun.getWorldPosition();
-
-    const theta = Math.random() * 2 * Math.PI;
-    const phi = Math.acos(2 * Math.random() - 1);
-
-    const radius = 300 + Math.random() * 200;
-
-    const x = radius * Math.sin(phi) * Math.cos(theta);
-    const y = radius * Math.sin(phi) * Math.sin(theta);
-    const z = radius * Math.cos(phi);
-
-    const offset = new THREE.Vector3(x, y, z);
-    return sunPos.clone().add(offset);
-}
 
 
 for(let i=0; i<5; i++){
@@ -84,7 +84,7 @@ for(let i=0; i<5; i++){
 
 }
 
-scene.add(new THREE.AmbientLight(0xffffff,0.2));
+scene.add(new THREE.AmbientLight(0xffffff,0.4));
 
 const player = new Character(scene, camera, new THREE.Vector3(0,-10,200));
 GameState.player = player;
@@ -94,103 +94,10 @@ const enemy1 = new Corvette(new THREE.Vector3(0,30,200), scene, "team1");
 GameState.npcs.push(enemy1);
 
 
-// const debugTable = new  DebugBoard(200, 200, 20);
-// scene.add(debugTable.getMesh());
-// debugTable.setPosition(new THREE.Vector3(0, 0, 180));
-
-
-function keydownHandler(event){
-    switch (event.key.toLowerCase()) {
-        case 'a':
-            KeyboardInputs['a'] = (event.shiftKey)? 2: 1;
-            KeyboardInputs['d'] = 0;
-            break;
-        case 'c':
-            KeyboardInputs['c'] = 1;
-            break;
-        case 'd':
-            KeyboardInputs['d'] = (event.shiftKey)? 2: 1;
-            KeyboardInputs['a'] = 0;
-            break;
-        case 'w':
-            KeyboardInputs['w'] = (event.shiftKey)? 2: 1;
-            KeyboardInputs['s'] = 0;
-            break;
-        case 's':
-            KeyboardInputs['s'] = (event.shiftKey)? 2: 1;
-            KeyboardInputs['w'] = 0;
-            break;
-        case '+':
-            KeyboardInputs['+'] = 1-KeyboardInputs['+'];
-            break;
-        default:
-            if (DEBUG_ON) console.log('Unknown key: ' + event.key);
-            break;
-    }
-}
-
-function keyupHandler(event){
-    switch (event.key.toLowerCase()) {
-        case 'a':
-            KeyboardInputs['a'] = 0;
-            break;
-        case 'c':
-            KeyboardInputs['c'] = 0;
-            break;
-        case 'd':
-            KeyboardInputs['d'] = 0;
-            break;
-        case 'w':
-            KeyboardInputs['w'] = 0;
-            break;
-        case 's':
-            KeyboardInputs['s'] = 0;
-            break;
-        default:
-            break;
-    }
-}
-
-function mousedownHandler(event){
-    switch (event.button){
-        case 0:
-            KeyboardInputs['mb0'] = 1;
-            break;
-        case 1:
-            KeyboardInputs['mb1'] = 1;
-            break;
-        default:
-            console.log('Unused mouse button', (event.button));
-            break;
-    }
-}
-
-function mouseupHandler(event){
-    switch (event.button){
-        case 0:
-            KeyboardInputs['mb0'] = 0;
-            break;
-        case 1:
-            KeyboardInputs['mb1'] = 0;
-            break;
-        default:
-            console.log('Unused mouse button', (event.button));
-            break;
-    }
-}
-
-function mousemoveHand(event){
-    var x = event.movementX || 0;
-    var y = event.movementY || 0;
-
-    KeyboardInputs['mouseX'] = x;
-    KeyboardInputs['mouseY'] = y;
-}
-
-document.addEventListener('mousedown', mousedownHandler);
-document.addEventListener('mouseup', mouseupHandler);
-document.addEventListener('keyup', keyupHandler);
-document.addEventListener('keydown', keydownHandler);
+document.addEventListener('mousedown', IOHAND.mousedownHandler);
+document.addEventListener('mouseup', IOHAND.mouseupHandler);
+document.addEventListener('keyup', IOHAND.keyupHandler);
+document.addEventListener('keydown', IOHAND.keydownHandler);
 
 canvas.addEventListener('click', ()=>{
     canvas.requestPointerLock();
@@ -198,9 +105,9 @@ canvas.addEventListener('click', ()=>{
 
 document.addEventListener('pointerlockchange', ()=>{
     if (document.pointerLockElement === canvas){
-        document.addEventListener('mousemove', mousemoveHand)
+        document.addEventListener('mousemove', IOHAND.mousemoveHand)
     }else{
-        document.removeEventListener('mousemove', mousemoveHand)
+        document.removeEventListener('mousemove', IOHAND.mousemoveHand)
     }
 })
 
@@ -216,31 +123,30 @@ var frozen = false;
 
 function loop(){
 
-    if(KeyboardInputs['+'] === 1) {
+    if(IOHAND.PeripheralsInputs['+'] === 1) {
         frozen = true;
-        clock.stop();
+        GameState.clock.stop();
     }
 
-    if(KeyboardInputs['+'] === 0 && frozen){
-        clock.start();
+    if(IOHAND.PeripheralsInputs['+'] === 0 && frozen){
+        GameState.clock.start();
         frozen = false;
     }
 
-    const elapsed = clock.getElapsedTime();
-    var deltaTime = elapsed - lastFrameTime;
+    const elapsed = GameState.clock.getElapsedTime();
+    var deltaTime = elapsed - GameState.fps.sinceLast;
     if(deltaTime < FRAME_DURATION) return;
     
-    lastFrameTime += deltaTime;
-    animationCnt++;
+    GameState.fps.sinceLast += deltaTime;
+    GameState.fps.frameCount++;
 
-    if (elapsed - lastFrameLog> 1) {
-        fpsDisplay.setText("FPS: "+animationCnt);
-        animationCnt = 0;
-        lastFrameLog += 1;
+
+    
+
+    if (GameState.player && GameState.player.loaded){
+        GameState.player.update(deltaTime);
+        hud.update();
     }
-
-    if (GameState.player && GameState.player.loaded)
-        GameState.player.update(KeyboardInputs, deltaTime);
     else if (!GameState.player)
         console.log("Object player not create yet");
     else if (!GameState.player.loaded)
@@ -272,10 +178,19 @@ function loop(){
     })
 
     skysphere.getMesh().position.copy(camera.position);
+
+    scene.traverse(bloomMtlHandler.darkenNonBloom);
+    camera.layers.set(BLOOM_LAYER);
+    composer.render();
+    
+    scene.traverse(bloomMtlHandler.restoreNormalMaterials);
+    camera.layers.set(0);
     renderer.render(scene, camera);
+    
     textRenderer.render(scene, camera);
-    KeyboardInputs.mouseX = 0;
-    KeyboardInputs.mouseY = 0;
+
+    IOHAND.PeripheralsInputs.mouseX = 0;
+    IOHAND.PeripheralsInputs.mouseY = 0;
 }
 
 renderer.setAnimationLoop(loop);

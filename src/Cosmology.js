@@ -2,6 +2,8 @@ import { Group, Vector3, Mesh } from "three";
 import * as THREE from 'three'
 import { GameState } from '@/GameState'
 
+export const BLOOM_LAYER = 1;
+
 const STAR_FS = `
     uniform vec3 glowColor;
     uniform float intensity;
@@ -25,6 +27,22 @@ const STAR_VS = `
         gl_Position = projectionMatrix * viewMatrix * worldPosition;
     }
 `;
+
+export function generatePlanetPosition(){
+    const sunPos = GameState.sun.getWorldPosition();
+
+    const theta = Math.random() * 2 * Math.PI;
+    const phi = Math.acos(2 * Math.random() - 1);
+
+    const radius = 300 + Math.random() * 200;
+
+    const x = radius * Math.sin(phi) * Math.cos(theta);
+    const y = radius * Math.sin(phi) * Math.sin(theta);
+    const z = radius * Math.cos(phi);
+
+    const offset = new THREE.Vector3(x, y, z);
+    return sunPos.clone().add(offset);
+}
 export class Planet{
     constructor(position, radius, mass, color) {
         this.INIT_SPEED = 10;
@@ -147,11 +165,20 @@ export class Star{
         
         this.mesh = new Mesh(this.geometry, this.mtl);
         this.glowMesh = new Mesh(this.glowGeometry, this.glowMtl);
+        
         this.group = new Group();
         this.group.add(this.light);
         this.group.add(this.mesh);
         this.group.add(this.glowMesh);
         this.group.position.copy(position);
+
+
+        this.group.traverse((child)=>{
+            if(child.isMesh){
+                child.layers.set(BLOOM_LAYER);
+                child.layers.enable(0);
+            }
+        });
     }
     
 

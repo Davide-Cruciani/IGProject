@@ -2,12 +2,12 @@ import { SphereGeometry, Mesh, MeshPhongMaterial, Vector3} from "three";
 import { GameState } from '@/GameState'
 
 export class Bullet{
-    constructor(position, direction, user) {
-        this.SPEED = 10;
+    constructor(position, direction, user, size) {
+        this.SPEED = 15;
 
-        this.geometry = new SphereGeometry(0.05);
+        this.geometry = new SphereGeometry(size);
         this.material = new MeshPhongMaterial({
-            color:0x00ff00,
+            color:0xffff00,
         });
         this.mesh = new Mesh(this.geometry, this.material);
         this.direction = direction;

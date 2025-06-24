@@ -1,4 +1,4 @@
-import { SimpleGun } from "../weapons/SimpleGun";
+import { SimpleGun } from "../weapons/Weapons";
 import { Enemy } from "./Enemy";
 import { GameState } from "@/GameState";
 
@@ -10,8 +10,8 @@ export class Corvette extends Enemy{
         this.TURN_SPEED = 0.5;
         this.BASE_DRAG = 1.005;
         this.MAX_HP = 10;
-        this.SIGHT_CONE = Math.PI/6;
-        this.SIGHT_DISTANCE = 30;
+        this.SIGHT_CONE = Math.PI/4;
+        this.SIGHT_DISTANCE = 60;
         this.AGGRO_GRACE = 5;
         this.AGGRO_TIME = 5;
 
@@ -152,7 +152,7 @@ export class Corvette extends Enemy{
 
         candidates.forEach((candidate)=>{
             const exists = this.suspects.find((val)=> val.ptr === candidate);
-            if (!exists) this.suspects.push({ptr:candidate, time:0});
+            if (!exists) this.suspects.push(candidate);
         })
 
         if (this.suspects.length > 0){

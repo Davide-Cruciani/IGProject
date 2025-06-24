@@ -19,3 +19,31 @@
   pointer-events: none;
   z-index: 10;
 }
+
+#health-bar{
+  width: 100%;
+  height: 100%;
+  background-color: red;
+  transition: width 0.2s ease-out;
+}
+
+#health-container{
+  position: absolute;
+  bottom: 30px;
+  left: 30px;
+  width: 200px;
+  height: 25px;
+  border: 2px solid white;
+  background-color: rgba(100, 0, 0, 0.4);
+}
+
+
+#weapon-indicator {
+  position: absolute;
+  bottom: 30px;
+  right: 30px;
+  font-size: 18px;
+  background-color: rgb(228, 116, 11);
+  padding: 6px 12px;
+  border-radius: 8px;
+}

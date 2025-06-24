@@ -5,10 +5,16 @@ export const GameState = {
     planets:[],
     player:null,
     sun:null,
+    clock:null,
     zoom:{
         level:1,
         speed:0.1,
         min:0.5,
         max:3
+    },
+    fps:{
+        sinceLast:0,
+        frameCount:0,
+        sinceLastLog:0
     }
 }
