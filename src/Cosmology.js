@@ -1,6 +1,7 @@
 import { Group, Vector3, Mesh } from "three";
-import * as THREE from 'three'
-import { GameState } from '@/GameState'
+import * as THREE from 'three';
+import { GameState } from '@/GameState';
+import { Configs } from '@/Configs';
 
 export const BLOOM_LAYER = 1;
 
@@ -48,7 +49,14 @@ export class Planet{
         this.INIT_SPEED = 10;
         this.ROTATION_SPEED = 0.1;
 
+        this.size = radius;
+        this.name = "planet" + GameState.planetUUID;
+        GameState.planetUUID++;
         this.mass = mass;
+
+
+        this.collisionMemory = {}
+
         this.geometry = new THREE.SphereGeometry(radius, 32,32);
         this.mtl = new THREE.MeshPhongMaterial({
             color:color,
@@ -89,7 +97,7 @@ export class Planet{
         var randomVec = new Vector3(Math.random(), Math.random(), Math.random()).normalize();
         var axis1 = new Vector3().crossVectors(forceDir, randomVec).normalize();
         if (axis1.lengthSq() === 0) {
-            randomVec = new Vector3(1, 0, 0); // pick a safe alternative
+            randomVec = new Vector3(1, 0, 0);
             axis1 = new Vector3().crossVectors(forceDir, randomVec).normalize();
         }
     
@@ -100,7 +108,7 @@ export class Planet{
         vel.addScaledVector(axis2, Math.sin(angle));
         
         const massSun = GameState.sun.getMass();
-        const orbitalSpeed = Math.sqrt(massSun / Math.max(distance * distance, 1));
+        const orbitalSpeed = Math.sqrt(massSun * Configs.gravitation / Math.max(distance, 1));
 
         this.speed = vel.multiplyScalar(orbitalSpeed);
     }
@@ -108,10 +116,17 @@ export class Planet{
     update(time){
         const gravity = this.computeGravity();
 
-        this.speed.add(gravity.multiplyScalar(time));
-        const vel = this.speed.length();
-        const norm = this.speed.clone().normalize();
-        this.mesh.translateOnAxis(norm, vel*time);
+        const collisionsResult = new Vector3();
+        for(const planet in this.collisionMemory){
+            const data = this.collisionMemory[planet];
+            collisionsResult.addScaledVector(data.direction, data.impulse);
+        }
+
+        this.collisionMemory = {};
+
+        this.speed.addScaledVector(gravity, time);
+        this.speed.addScaledVector(collisionsResult, time);
+        this.mesh.position.addScaledVector(this.speed, time);
         this.mesh.rotation.y += time*this.ROTATION_SPEED
     }
 
@@ -129,19 +144,86 @@ export class Planet{
             const distance = vectorToPlanet.length();
             if (distance <= 0 || isNaN(distance)) return;
             
-            const acceleration = planet.getMass() / Math.max(distance*distance, 1);
+            const acceleration = planet.getMass()*Configs.gravitation / Math.max(distance*distance, 1);
 
             sumVector.add(vectorToPlanet.clone().normalize().multiplyScalar(acceleration));
         })
         return sumVector;
     }
 
+    detonation(){
+
+    }
+
+    checkSun(){
+        const sunPos = GameState.sun.getWorldPosition();
+        const sunRad = GameState.sun.getHitboxSize();
+
+        const myPos = this.getWorldPosition();
+        
+        const direction = new Vector3();
+        direction.subVectors(sunPos, myPos);
+        if(direction.length() < sunRad + this.getHitboxSize()){
+            this.detonation();
+            this.mesh.position.set(generatePlanetPosition());
+            this.initPlanetSpeed(other.getWorldPosition());
+        }
+
+    }
+
+    collision(other){
+        if(!(other instanceof Planet)) return;
+        if (this.collisionMemory[other.getName()]) return;
+        
+        const myPos = this.getWorldPosition();
+        const otherPos = this.getWorldPosition();
+
+        const dist = new Vector3();
+        dist.subVectors(otherPos, myPos);
+        if(dist.length() < this.getHitboxSize() + other.getHitboxSize()){
+            const myVel = this.getVelocity();
+            const otherVel = other.getVelocity();
+            const relativeVel = otherVel.clone().sub(myVel);
+
+            const direction = (dist.lengthSq() === 0)? new Vector3(): dist.clone().normalize(); 
+            const impactSpeed = relativeVel.dot(direction);
+
+            if(impactSpeed < 0) {
+                const report = {
+                    impulse: 1,
+                    direction: direction.clone().multiplyScalar(-1),
+                };
+
+                const otherReport = {
+                    impulse: 1,
+                    direction: direction.clone()
+                };
+
+                this.collisionMemory[other.getName()] = report;
+                other.collisionMemory[this.getName()] = otherReport;
+            }
+
+        }
+    }
+
+    getWorldDirection(){
+        const forward = new Vector3(0,1,0);
+        forward.applyQuaternion(this.mesh.quaternion);
+        return forward.normalize();
+    }
+
+    getVelocity(){ return this.speed; }
+    getName(){ return this.name; }
+    getHitboxSize(){ return this.size; }
+
 }
 export class Star{
     constructor(position, radius, mass){
         const textureLoader = new THREE.TextureLoader();
         const sunTexture = textureLoader.load('./assets/planetsMaps/2k_sun.jpg');
+        this.size = radius;
         this.mass = mass;
+        this.name = 'sun';
         this.light = new THREE.DirectionalLight(0xffc100,1);
         this.geometry = new THREE.SphereGeometry(radius, 32,32);
         this.mtl = new THREE.MeshBasicMaterial({
@@ -181,10 +263,17 @@ export class Star{
         });
     }
     
+    getVelocity(){
+        return new Vector3();
+    }
 
     getMesh(){ return this.group; }
 
     getMass(){ return this.mass; }
+
+    getName(){ return this.name; }
+
+    getHitboxSize(){ return this.size; }
 
     getWorldPosition(){
         this.group.updateMatrixWorld(true);
@@ -192,6 +281,11 @@ export class Star{
         this.group.getWorldPosition(res);
         
         return res;
+    }
+
+    collision(object){
+        if(!(object instanceof Planet))
+        object.checkSun();
     }
 
     update(time){

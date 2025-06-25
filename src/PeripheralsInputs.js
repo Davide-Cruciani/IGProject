@@ -1,5 +1,5 @@
 export const PeripheralsInputs = {
-    '+':0,
+    'escape':0,
     'a': 0,
     'd': 0,
     's': 0,
@@ -14,26 +14,23 @@ export const PeripheralsInputs = {
 export function keydownHandler(event){
     switch (event.key.toLowerCase()) {
         case 'a':
-            PeripheralsInputs['a'] = (event.shiftKey)? 2: 1;
+            PeripheralsInputs['a'] = 1;
             PeripheralsInputs['d'] = 0;
             break;
         case 'c':
             PeripheralsInputs['c'] = 1;
             break;
         case 'd':
-            PeripheralsInputs['d'] = (event.shiftKey)? 2: 1;
+            PeripheralsInputs['d'] = 1;
             PeripheralsInputs['a'] = 0;
             break;
         case 'w':
-            PeripheralsInputs['w'] = (event.shiftKey)? 2: 1;
+            PeripheralsInputs['w'] = 1;
             PeripheralsInputs['s'] = 0;
             break;
         case 's':
-            PeripheralsInputs['s'] = (event.shiftKey)? 2: 1;
+            PeripheralsInputs['s'] = 1;
             PeripheralsInputs['w'] = 0;
-            break;
-        case '+':
-            PeripheralsInputs['+'] = 1-PeripheralsInputs['+'];
             break;
         case 'q':
             PeripheralsInputs['q'] = 1;

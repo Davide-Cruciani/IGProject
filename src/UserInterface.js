@@ -1,7 +1,8 @@
-import { CanvasTexture, Color, Sprite, SpriteMaterial } from "three";
+import { CanvasTexture, Sprite, SpriteMaterial } from "three";
+import * as THREE from 'three';
 import { GameState } from '@/GameState'
 
-export class HUD{
+export class Hud{
     constructor(){
         this.mainElement = document.createElement('div');
         this.mainElement.id = 'hud';
@@ -90,12 +91,40 @@ export class WeaponIndicator extends HudElement{
     constructor(){
         super();
         this.mainElement.id = 'weapon-indicator';
+
+        this.previous = document.createElement('div');
+        this.current = document.createElement('div');
+        this.next = document.createElement('div');
+        
+        this.previous.className = 'weapon-previous';
+        this.current.className = 'weapon-current'; 
+        this.next.className = 'weapon-next';
+        
+        this.mainElement.appendChild(this.previous);
+        this.mainElement.appendChild(this.current);
+        this.mainElement.appendChild(this.next);
     }
 
     update(){
-        if (!GameState.player || typeof GameState.player.getEquippedWeapon !== 'function') return;
-        const weaponName = GameState.player.getEquippedWeapon().getName();
-        this.mainElement.textContent = (weaponName)? `Equipped: ${weaponName}`: 'No Weapon';
+        if (!GameState.player) return;
+        const weaponReport = GameState.player.getWeaponData();
+
+        const previous = weaponReport.previous;
+        const current = weaponReport.current;
+        const next = weaponReport.next;
+        
+        if(previous.getCD() > 0)
+            this.previous.textContent = `${previous.getName()} | CD:${previous.getCD().toFixed(2)}`;
+        else
+            this.previous.textContent = `${previous.getName()}`;
+        if(current.getCD() > 0)
+            this.current.textContent = `> ${current.getName()} | CD:${current.getCD().toFixed(2)}`;
+        else
+            this.current.textContent = `> ${current.getName()}`;
+        if(next.getCD() > 0)
+            this.next.textContent = `${next.getName()} | CD:${next.getCD().toFixed(2)}`;
+        else
+            this.next.textContent = `${next.getName()}`;
     }
 
 }
@@ -142,3 +171,135 @@ export class AlertIcon{
     }
 }
 
+export class CrossHair extends HudElement{
+    constructor(){
+        super();
+        this.mainElement.id = 'cross-hair'
+        this.DISTANCE = 100;
+    }
+    update(){
+        const player = GameState.player;
+        const camera = GameState.camera;
+        if(!player || !camera) return;
+        const direction = player.getWorldDirection();
+        const origin = player.getWorldPosition();
+
+        const targetWorld = origin.clone().add(direction.multiplyScalar(this.DISTANCE));
+        const projection = targetWorld.clone().project(camera);
+
+        const screenX = (projection.x + 1) / 2 * window.innerWidth;
+        const screenY = (-projection.y + 1) / 2 * window.innerHeight;
+
+        this.mainElement.style.left = `${screenX - 8}px`;
+        this.mainElement.style.top = `${screenY - 8}px`;
+
+    }
+}
+
+const SPHERE_VS = `
+        varying vec3 vNormal;
+        void main() {
+            vNormal = normal;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `;
+const SPHERE_FS = `
+        varying vec3 vNormal;
+        void main() {
+            if (vNormal.y > 0.0)
+                gl_FragColor = vec4(0.1, 0.3, 1.0, 1); // Top half: blueish
+            else
+                gl_FragColor = vec4(0.8, 0.1, 0.1, 1); // Bottom half: reddish
+        }
+    `;
+
+export class Compass extends HudElement{
+    constructor() {
+        super();
+        this.SEGMENTS = 12;
+        this.group = new THREE.Group();
+
+        this.sphereGroup = new THREE.Group();
+        this.sphereMtl = new THREE.ShaderMaterial({
+            uniforms:{},
+            vertexShader: SPHERE_VS,
+            fragmentShader: SPHERE_FS,
+            transparent:false,
+            side: THREE.DoubleSide
+        });
+        this.sphereGeo = new THREE.SphereGeometry(1,16,16);
+        this.sphereMesh = new THREE.Mesh(this.sphereGeo, this.sphereMtl);
+
+        this.sphereGroup.add(this.sphereMesh);
+
+        this.lineGroup = new THREE.Group();
+        for(let i=0;i<this.SEGMENTS;i++){
+            const angle = (i/this.SEGMENTS) * Math.PI*2;
+            const points = [];
+            for(let y=-1;y<=1;y+=0.05){
+                const x = Math.cos(angle) * Math.sqrt(1 - y*y);
+                const z = Math.sin(angle) * Math.sqrt(1 - y*y);
+                points.push(new THREE.Vector3(x,y,z));
+            }
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const color = (i!=0)? 0xffffff: 0x00ff00
+            const line = new THREE.Line(
+                geometry,
+                new THREE.LineBasicMaterial({color: color, opacity:0.5, transparent:true})
+            );
+            this.lineGroup.add(line);
+            this.sphereGroup.add(this.lineGroup);
+
+            this.group.add(this.sphereGroup);
+
+            GameState.scene.add(this.group);
+
+        }
+    }
+
+    update(){
+        const player = GameState.player;
+        const camera = GameState.camera;
+
+        if(!player || !camera) return;
+
+        const pitch = player.pitch;
+        const yaw = player.yaw;
+
+        this.sphereGroup.rotation.x = pitch;
+        this.sphereGroup.rotation.y = yaw;
+
+        const cameraQuaternion = camera.quaternion.clone();
+        this.group.quaternion.copy(cameraQuaternion);
+
+        const cameraPos = camera.position.clone();
+
+        const offset = new THREE.Vector3(1.4, -0.6, -1.2);
+        offset.applyQuaternion(cameraQuaternion);
+        this.group.position.copy(cameraPos.clone().add(offset));
+        this.group.scale.set(0.2,0.2,0.2);
+    }
+}
+
+export class PauseHandler{
+    constructor(){
+        this.active = false;
+        this.element = document.createElement('div');
+        this.element.id = 'pause-overlay';
+        this.element.innerText = 'PAUSE';
+        document.body.appendChild(this.element);
+    }
+
+    activate(){
+        if(this.active) return;
+        this.element.classList.add('visible');
+        this.active = true;
+    }
+
+    deactivate(){
+        if(!this.active) return;
+        this.element.classList.remove('visible');
+        this.active = false;
+    }
+
+}

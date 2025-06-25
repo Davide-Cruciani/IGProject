@@ -5,7 +5,7 @@ import { Character } from './Character.js'
 import { Corvette } from './enemies/Corvette.js';
 import { Skysphere } from './Skysphere.js';
 import { Planet, Star, generatePlanetPosition, BLOOM_LAYER } from './Cosmology.js';
-import { FPSIndicator, HealthBar, HUD, WeaponIndicator } from './UserInterface.js';
+import * as HUD from './UserInterface.js';
 import { GameState } from '@/GameState';
 import { EffectComposer } from 'three/examples/jsm/Addons.js';
 import { UnrealBloomPass } from 'three/examples/jsm/Addons.js';
@@ -21,9 +21,10 @@ const ZOOM_SENSITIVITY = 0.001;
 document.body.style.cursor = 'none';
 
 
-const scene = new THREE.Scene();
+GameState.scene = new THREE.Scene();
 GameState.clock = new THREE.Clock();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1200);
+GameState.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1200);
+GameState.cameraRecoilOffset = new THREE.Vector3();
 
 const renderer = new THREE.WebGLRenderer();
 const canvas = renderer.domElement;
@@ -32,7 +33,7 @@ renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMappingExposure = 2.0;
 document.body.appendChild(canvas);
 
-const renderScene = new RenderPass(scene, camera);
+const renderScene = new RenderPass(GameState.scene, GameState.camera);
 const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
     2.0,0.4,0.1
@@ -51,25 +52,32 @@ textRenderer.domElement.style.pointerEvents = 'none';
 textRenderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(textRenderer.domElement);
 
-const hud = new HUD();
+const hud = new HUD.Hud();
 
-const fpsDisplay = new FPSIndicator("FPS: ---");
+const fpsDisplay = new HUD.FPSIndicator("FPS: ---");
 hud.addElement(fpsDisplay);
 
-const healthBar = new HealthBar();
+const healthBar = new HUD.HealthBar();
 hud.addElement(healthBar);
 
-const weaponIndicator = new WeaponIndicator();
+const weaponIndicator = new HUD.WeaponIndicator();
 hud.addElement(weaponIndicator);
 
+const crossHair = new HUD.CrossHair();
+hud.addElement(crossHair);
+
+const compass = new HUD.Compass();
+hud.addElement(compass);
+
+const pauseHand = new HUD.PauseHandler();
 
 const skysphere = new Skysphere();
-scene.add(skysphere.getMesh());
+GameState.scene.add(skysphere.getMesh());
+
 
 const sun = new Star(new THREE.Vector3(0, 0, 0), 100, 50000);
-scene.add(sun.getMesh());
+GameState.scene.add(sun.getMesh());
 GameState.sun = sun;
-GameState.planets.push(sun);
 
 
 for(let i=0; i<5; i++){
@@ -78,19 +86,19 @@ for(let i=0; i<5; i++){
     const size = Math.random() * 50 + 10
     const mass = size * DENSITY;
     const planet = new Planet(planetPosition, size, mass, color);
-    scene.add(planet.getMesh());
+    GameState.scene.add(planet.getMesh());
     GameState.planets.push(planet);
     planet.initPlanetSpeed(sun.getWorldPosition());
 
 }
 
-scene.add(new THREE.AmbientLight(0xffffff,0.4));
+GameState.scene.add(new THREE.AmbientLight(0xffffff,0.4));
 
-const player = new Character(scene, camera, new THREE.Vector3(0,-10,200));
+const player = new Character(new THREE.Vector3(0,-10,200));
 GameState.player = player;
 
 
-const enemy1 = new Corvette(new THREE.Vector3(0,30,200), scene, "team1");
+const enemy1 = new Corvette(new THREE.Vector3(0,30,200), "team1");
 GameState.npcs.push(enemy1);
 
 
@@ -99,15 +107,34 @@ document.addEventListener('mouseup', IOHAND.mouseupHandler);
 document.addEventListener('keyup', IOHAND.keyupHandler);
 document.addEventListener('keydown', IOHAND.keydownHandler);
 
+
+GameState.paused = false;
+
 canvas.addEventListener('click', ()=>{
     canvas.requestPointerLock();
+    if(GameState.paused){
+            GameState.clock.start();
+            pauseHand.deactivate();
+            GameState.fps.sinceLast = GameState.clock.getElapsedTime();
+            GameState.paused = false;
+        }
 })
 
 document.addEventListener('pointerlockchange', ()=>{
     if (document.pointerLockElement === canvas){
         document.addEventListener('mousemove', IOHAND.mousemoveHand)
+        document.body.style.cursor = 'none';
+        
     }else{
         document.removeEventListener('mousemove', IOHAND.mousemoveHand)
+        document.body.style.cursor = 'pointer';
+
+        if(!GameState.paused){
+            GameState.clock.stop();
+            pauseHand.activate()
+            GameState.paused = true;
+        }
+
     }
 })
 
@@ -119,19 +146,9 @@ document.addEventListener('wheel', (event)=>{
 GameState.objects.push(player);
 GameState.objects.push(enemy1);
 
-var frozen = false;
 
 function loop(){
-
-    if(IOHAND.PeripheralsInputs['+'] === 1) {
-        frozen = true;
-        GameState.clock.stop();
-    }
-
-    if(IOHAND.PeripheralsInputs['+'] === 0 && frozen){
-        GameState.clock.start();
-        frozen = false;
-    }
+    if(GameState.paused) return;
 
     const elapsed = GameState.clock.getElapsedTime();
     var deltaTime = elapsed - GameState.fps.sinceLast;
@@ -140,10 +157,19 @@ function loop(){
     GameState.fps.sinceLast += deltaTime;
     GameState.fps.frameCount++;
 
-
-    
-
     if (GameState.player && GameState.player.loaded){
+        GameState.npcs.forEach((npc)=>{
+            GameState.player.shipCollision(npc)
+        });
+        GameState.planets.forEach((planet)=>{
+            GameState.player.planetCollision(planet);
+        });
+        GameState.player.planetCollision(GameState.sun);
+        GameState.bullets.forEach((bullet)=>{
+            if(!bullet.isValid()) return;
+            GameState.player.bulletCollision(bullet)
+        });
+
         GameState.player.update(deltaTime);
         hud.update();
     }
@@ -152,42 +178,59 @@ function loop(){
     else if (!GameState.player.loaded)
         console.log("Player model not loaded yet");
 
-    GameState.bullets = GameState.bullets.filter((bullet)=>{
-        const valid = bullet.timer.getElapsedTime() < bullet.ttl;
-        if(!valid){
-            scene.remove(bullet.ptr.getMesh());
-            bullet.ptr.delete();
-        }else{
-            bullet.ptr.update(deltaTime);
+    GameState.npcs.forEach((npcPtr)=>{
+        if(!npcPtr)
+            console.warn("Empty entry in NPCs list");
+        else if(!npcPtr.loaded)
+            console.log('['+npcPtr.getName()+'] Not loaded yet');
+        else{
+            GameState.npcs.forEach((other)=>{
+                npcPtr.shipCollision(other);
+            })
+            GameState.planets.forEach((planet)=>{
+                npcPtr.planetCollision(planet);
+            })
+            npcPtr.planetCollision(GameState.sun);
+            GameState.bullets.forEach((bullet)=>{
+                if(!bullet.isValid()) return;
+                npcPtr.bulletCollision(bullet);
+            })
+            npcPtr.update(deltaTime);
         }
-        return valid;
+    });
+
+    GameState.planets.forEach((planet)=>{
+        GameState.planets.forEach((other)=>{
+            planet.collision(other);
+        })
+        GameState.sun.collision(planet);
+        planet.update(deltaTime);
+    });
+
+    GameState.bullets = GameState.bullets.filter((bullet)=>{
+        GameState.planets.forEach((planet)=>{
+            bullet.checkCelestial(planet);
+        })
+        bullet.checkCelestial(GameState.sun);
+        bullet.update(deltaTime);
+        return bullet.isValid();
     });
     
-    GameState.planets.forEach((planet)=>{
-        planet.update(deltaTime);
-    })
 
-    GameState.npcs = GameState.npcs.filter((npcPtr)=>{
-        if(!npcPtr || !npcPtr.loaded) return true;
-        else{
-            npcPtr.update(deltaTime);
-            const dead = npcPtr.isDead();
-            if (dead) npcPtr.kill();
-            return !dead;
-        }
-    })
 
-    skysphere.getMesh().position.copy(camera.position);
 
-    scene.traverse(bloomMtlHandler.darkenNonBloom);
-    camera.layers.set(BLOOM_LAYER);
+
+    skysphere.getMesh().position.copy(GameState.camera.position);
+
+    GameState.scene.traverse(bloomMtlHandler.darkenNonBloom);
+    GameState.camera.layers.set(BLOOM_LAYER);
     composer.render();
     
-    scene.traverse(bloomMtlHandler.restoreNormalMaterials);
-    camera.layers.set(0);
-    renderer.render(scene, camera);
+    GameState.scene.traverse(bloomMtlHandler.restoreNormalMaterials);
+    GameState.camera.layers.set(0);
+    renderer.render(GameState.scene, GameState.camera);
     
-    textRenderer.render(scene, camera);
+    textRenderer.render(GameState.scene, GameState.camera);
 
     IOHAND.PeripheralsInputs.mouseX = 0;
     IOHAND.PeripheralsInputs.mouseY = 0;

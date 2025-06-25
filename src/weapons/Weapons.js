@@ -3,16 +3,34 @@ import { Bullet } from "./Bullet";
 import { GameState } from "@/GameState";
 
 
+export class DummyWeapon{
+    constructor(){
+        this.NAME = 'No weapon';
+    }
+
+    shoot(){
+        return;
+    }
+
+    getName(){ return this.NAME; }
+}
+
 export class SimpleGun{
-    constructor(ship, scene){
+    constructor(ship){
         this.CD = 0.25;
         this.BULLET_TTL = 5;
         this.NAME = 'Basic Gun';
         this.ship = ship;
-        this.scene = scene;
+        this.idCounter = 0;
 
         this.timeKeeper = new Clock(true);
         this.timeLastBullet = 0;
+    }
+
+    createBulletName(){
+        const name = `${this.ship.getName()}-${this.getName()}-${this.idCounter}`;
+        this.idCounter++;
+        return name;
     }
 
     shoot(){
@@ -20,17 +38,12 @@ export class SimpleGun{
         if (elapsed - this.timeLastBullet > this.CD){
                 const shipPos = this.ship.getWorldPosition();
                 const shipDir = this.ship.getWorldDirection();
-                const bullet = new Bullet(shipPos, shipDir, this.ship, 0.07);
+                const name = this.createBulletName(); 
+                const bullet = new Bullet(shipPos, shipDir, this.ship, 0.07, name);
                 this.timeLastBullet = elapsed;
-                const clock = new Clock(false);
-                const bulletRecord = {
-                    timer: clock,
-                    ttl: this.BULLET_TTL,
-                    ptr: bullet,
-                }
-                clock.start();
-                GameState.bullets.push(bulletRecord);
-                this.scene.add(bullet.getMesh());
+                bullet.setTTL(this.BULLET_TTL);
+                GameState.bullets.push(bullet);
+                GameState.scene.add(bullet.getMesh());
             }
     }
 
@@ -38,11 +51,17 @@ export class SimpleGun{
         return this.NAME;
     }
 
+    getCD(){
+        const elapsed = this.timeKeeper.getElapsedTime();
+        const time_left = this.CD - (elapsed - this.timeLastBullet);
+        return time_left;
+    }
+
 }
 
 export class Shotgun extends SimpleGun{
-    constructor(ship, scene) {
-        super(ship, scene);
+    constructor(ship) {
+        super(ship);
         this.NAME = 'ShotGun';
         this.CD = 1.5;
         this.BULLET_TTL = 5;
@@ -60,17 +79,13 @@ export class Shotgun extends SimpleGun{
 
                 const spreadQuat = new Quaternion().setFromAxisAngle(randomAxis, randomAngle);
                 const spreadDir = shipDir.clone().applyQuaternion(spreadQuat).normalize();
+                const name = this.ship.getName() + this.idCounter;
 
-                const bullet = new Bullet(shipPos, spreadDir, this.ship, 0.12);
-                const clock = new Clock(false);
-                const bulletRecord = {
-                    timer: clock,
-                    ttl: this.BULLET_TTL,
-                    ptr: bullet,
-                }
-                clock.start();
-                GameState.bullets.push(bulletRecord);
-                this.scene.add(bullet.getMesh());
+                const bullet = new Bullet(shipPos, spreadDir, this.ship, 0.12, name);
+                bullet.setTTL(this.BULLET_TTL);
+                this.idCounter++;
+                GameState.bullets.push(bullet);
+                GameState.scene.add(bullet.getMesh());
             }
             this.timeLastBullet = elapsed;
         }

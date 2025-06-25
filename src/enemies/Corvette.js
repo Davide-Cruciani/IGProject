@@ -5,11 +5,14 @@ import { GameState } from "@/GameState";
 export class Corvette extends Enemy{
     constructor(position, scene, team){
         super("spaceship1", position, scene, team);
+        this.name += 'Corvette' + GameState.npcUUID;
+        GameState.npcsUUID++;
         this.MAX_SPEED = 2;
         this.ACCELERATION = 1.5;
         this.TURN_SPEED = 0.5;
         this.BASE_DRAG = 1.005;
-        this.MAX_HP = 10;
+        this.MAX_HEALTH = 500;
+        this.MASS = 10;
         this.SIGHT_CONE = Math.PI/4;
         this.SIGHT_DISTANCE = 60;
         this.AGGRO_GRACE = 5;
@@ -18,9 +21,8 @@ export class Corvette extends Enemy{
 
         this.scene = scene;
         this.suspects = [];
-        this.currentSpeed = 0;
         this.currentBehavior = 'wander';
-        this.damageReceived = 0;
+        this.currentHealth = this.MAX_HEALTH;
         this.target = null;
         this.targetLastSeen = 0;
 
@@ -29,6 +31,9 @@ export class Corvette extends Enemy{
 
     update(time){
         if (!this.loaded || !this.obj) return;
+
+        this.dealWithCollisions();
+
         if(!this.target && this.suspects.length > 0){
             this.checkOnSuspects(time);
         }
@@ -59,12 +64,11 @@ export class Corvette extends Enemy{
             orientation: this.getWorldDirection()
         };
 
-        this.movement(time, targetConfiguration);
-        this.collision(GameState.objects);
+        this.movement(time);
     }
 
-    movement(time, configuration){
-        const gravityVector = this.computeGravity();
+    movement(time){
+        if(!this.loaded || !this.obj) return;
         switch (this.currentBehavior) {
             case 'wander':
                 
@@ -82,15 +86,17 @@ export class Corvette extends Enemy{
                 throw new Error('Unknown behavior');
         }
 
-        this.obj.translateOnAxis(gravityVector, time);
 
+        // this.obj.position.addScaledVector(this.vel, time);
+        const gravityVector = this.computeGravity();
+        const targetPos = this.obj.position.clone().addScaledVector(this.vel, time);
+        this.obj.position.lerp(targetPos, 0.1);
+        this.vel.addScaledVector(gravityVector, time);
     }
 
-
-    collision(){
-
+    getVelocity(){
+        return this.vel.clone();
     }
-
     
 
     checkOnSuspects(time){
@@ -142,7 +148,7 @@ export class Corvette extends Enemy{
             if(!entry || !entry.loaded || entry === this || entry.getTeam() === this.team) continue;
             const visible = this.isSeen(entry);
             if(visible>0 && visible<this.SIGHT_DISTANCE){
-                var suspect = {
+                const suspect = {
                     ptr: entry,
                     time:0
                 }
@@ -151,7 +157,7 @@ export class Corvette extends Enemy{
         }
 
         candidates.forEach((candidate)=>{
-            const exists = this.suspects.find((val)=> val.ptr === candidate);
+            const exists = this.suspects.find((val)=> val.ptr === candidate.ptr);
             if (!exists) this.suspects.push(candidate);
         })
 

@@ -4,6 +4,10 @@ export const GameState = {
     bullets:[],
     planets:[],
     player:null,
+    camera:null,
+    cameraRecoilOffset:null,
+    gameOver:null,
+    scene:null,
     sun:null,
     clock:null,
     zoom:{
@@ -16,5 +20,8 @@ export const GameState = {
         sinceLast:0,
         frameCount:0,
         sinceLastLog:0
-    }
+    },
+    paused:false,
+    npcUUID:0,
+    planetUUID:0,
 }
