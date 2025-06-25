@@ -1,6 +1,6 @@
-import { SphereGeometry, Mesh, MeshPhongMaterial, Vector3} from "three";
+import * as THREE from "three";
 import { GameState } from '@/GameState'
-import { Configs } from "@/Configs";
+import { GameConfigs } from "@/GameConfigs";
 import { Planet, Star } from "../Cosmology";
 
 export class Bullet{
@@ -13,21 +13,41 @@ export class Bullet{
         this.name = name;
         this.size = size;
         this.age = 0;
-        this.geometry = new SphereGeometry(size);
-        this.material = new MeshPhongMaterial({
+        this.geometry = new THREE.SphereGeometry(size);
+        this.material = new THREE.MeshPhongMaterial({
             color:0xffff00,
+            emissive:0xffa500,
+            emissiveIntensity: 2,
+            shininess: 100
         });
 
         this.valid = true;
-
-        this.mesh = new Mesh(this.geometry, this.material);
         this.direction = direction;
         this.direction.normalize();
-        this.mesh.position.copy(position);
+        
+        this.group = new THREE.Group();
+        this.group.position.copy(position);
+
+        this.mesh = new THREE.Mesh(this.geometry, this.material);
         this.user = user;
+
+        this.group.add(this.mesh);
+
+        this.trailGeometry = new THREE.CylinderGeometry(size, 0.05, 2, 8, 1, true);
+        this.trailGeometry.rotateX(Math.PI / 2);
+        this.trailMaterial = new THREE.MeshBasicMaterial({
+            color: 0xff5500,
+            transparent: true,
+            opacity: 0.7,
+        });
+        this.trailMesh = new THREE.Mesh(this.trailGeometry, this.trailMaterial);
+        this.trailMesh.position.copy(this.mesh.position).sub(this.direction);
+        this.trailMesh.lookAt(new THREE.Vector3(0,0,0));
+        this.group.add(this.trailMesh);
+
     }
 
-    getMesh(){ return this.mesh; };
+    getMesh(){ return this.group; };
 
     setName(name){
         this.name = name;
@@ -50,8 +70,11 @@ export class Bullet{
             this.delete();
             return;
         }
+
         if(this.age < this.TTL){
-            this.mesh.position.addScaledVector(this.direction, this.SPEED*time);
+            const movement = this.direction.clone();
+            movement.multiplyScalar(this.SPEED * time);
+            this.group.position.add(movement);
             this.age += time;
         }else{
             this.valid = false;
@@ -59,10 +82,18 @@ export class Bullet{
         }
     }
 
+    getWorldDirection(){
+        if(!this.group) return new THREE.Vector3();
+        const direction = new Vector3(0, 1, 0);
+        direction.applyQuaternion(this.group.quaternion);
+        direction.normalize();
+        return direction;
+    }
+
     getWorldPosition(){
-        if(!this.mesh) return;
-        const res = new Vector3();
-        this.mesh.getWorldPosition(res);
+        if(!this.group) return new THREE.Vector3();;
+        const res = new THREE.Vector3();
+        this.group.getWorldPosition(res);
         return res;
     }
 
@@ -70,7 +101,7 @@ export class Bullet{
 
     delete(){
         if(this.mesh){
-            GameState.scene.remove(this.mesh);
+            GameState.scene.remove(this.group);
             this.mesh = null;
         }
         if (this.geometry){
@@ -83,9 +114,24 @@ export class Bullet{
             this.material = null;
         }
 
-        this.user.bulletCount--;
         if(this.valid)
             this.valid = false;
+        if(this.trailMesh){
+            this.trailMesh = null;
+        }
+        if(this.trailGeometry){
+            this.trailGeometry.dispose();
+            this.trailGeometry = null;
+        }
+        if(this.trailMaterial){
+            this.trailMaterial.dispose();
+            this.trailMaterial = null;
+        }
+        if(this.group){
+            this.group = null;
+        }
+
+        this.user.bulletCount--;
     }
 
     getDamage(){ return this.MASS * this.SPEED*this.SPEED *0.5; }
@@ -97,9 +143,9 @@ export class Bullet{
         const myPos = this.getWorldPosition();
         if(!myPos) return;
         const celestialPos = celestial.getWorldPosition();
-        const distance = new Vector3();
+        const distance = new THREE.Vector3();
         distance.subVectors(celestialPos, myPos);
-        if (distance < celestial.getHitboxSize() + this.getHitboxSize()){
+        if (distance.length() < celestial.getHitboxSize() + this.getHitboxSize()){
             this.delete();
         }
     }
@@ -109,7 +155,7 @@ export class Bullet{
         const otherPos = object.getWorldPosition();
         const myPos = this.getWorldPosition();
         if(!myPos) return {itAppend: false};
-        const dist = new Vector3();
+        const dist = new THREE.Vector3();
         dist.subVectors(otherPos, myPos);
 
         const collision = dist.length() < this.getHitboxSize() + object.getHitboxSize();
@@ -122,7 +168,7 @@ export class Bullet{
         const momentum = this.MASS * this.SPEED;
         const energy = this.getDamage();
 
-        const clampedIMP = Math.min(Configs.MAX_IMPULSE, momentum);
+        const clampedIMP = Math.min(GameConfigs.MAX_IMPULSE, momentum);
         const clampedDMG = Math.min(this.MAX_DAMAGE, energy/object.getMass());
 
         const report = {

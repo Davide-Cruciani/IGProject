@@ -1,7 +1,7 @@
 import * as WEAPON from "./weapons/Weapons";
 import { GameOver } from "@/GameOverHandler";
 import { GameState } from "@/GameState";
-import { Configs } from "@/Configs";
+import { GameConfigs } from "@/GameConfigs";
 import { OBJLoader } from "three/examples/jsm/Addons.js";
 import { MTLLoader } from "three/examples/jsm/Addons.js";
 import { Vector3, Object3D, Quaternion} from "three";
@@ -27,8 +27,8 @@ export class Character{
         this.lastDamage = 0;
 
         this.weaponList = []
-        this.weaponList.push(new WEAPON.Shotgun(this));
         this.weaponList.push(new WEAPON.SimpleGun(this))
+        this.weaponList.push(new WEAPON.Shotgun(this));
         this.dead = false;
 
         this.selectedWeapon = 0;
@@ -88,6 +88,7 @@ export class Character{
 
     update(time){
         if(this.dead) return;
+        if(!this.root || !this.loaded) return;
         this.dealWithCollisions();
 
         this.yaw -= PeripheralsInputs['mouseX'] * this.SENSITIVITY;
@@ -138,6 +139,7 @@ export class Character{
     }
 
     shipCollision(object){
+        if(this.dead) return;
         if(!(object instanceof Enemy)) return;
         if(object.isDead()) return;
         if(object === this) return; 
@@ -171,28 +173,20 @@ export class Character{
 
             const massCoefficient = (myMass*otherMass)/(myMass+otherMass);
             
-            const momentum = massCoefficient * impactSpeed * Configs.impactMultiplier;
+            const momentum = massCoefficient * impactSpeed * GameConfigs.IMPACT_MUL;
             const impactDamage = 0.5 * momentum * impactSpeed;
             
             var ramFactor = (direction.angleTo(this.getWorldDirection()) < Math.PI/4)? 3: 1;
 
-            // console.log(`[${this.getName()}] mass: ${myMass}`);
-            // console.log(`[${object.getName()}] mass: ${otherMass}`);
-            // console.log('myVel:', myVel);
-            // console.log('otherVel:', otherVel);
-            // console.log('relativeVel:', relativeVel);
-            // console.log('normDirection:', normDirection);
-            // console.log('impactSpeed:', impactSpeed);
-
             const report = {
                 damage: impactDamage/(myMass*ramFactor),
-                impulse: momentum/myMass,
+                impulse: Math.min(momentum/myMass, GameConfigs.MAX_RAM_DAMAGE),
                 direction: normDirection.clone().multiplyScalar(-1)
             }
 
             const reportOther = {
                 damage: impactDamage*(ramFactor)/otherMass,
-                impulse: momentum/otherMass,
+                impulse: Math.min(momentum/otherMass, GameConfigs.MAX_RAM_DAMAGE),
                 direction: normDirection.clone()
             }
             this.collisionsResultShip[object.getName()] = report;
@@ -201,6 +195,7 @@ export class Character{
     }
 
     planetCollision(object){
+        if(this.dead) return;
         if(!(object instanceof Planet) && !(object instanceof Star)) return;
         const currentPos = this.getWorldPosition();
         const otherPos = object.getWorldPosition();
@@ -211,6 +206,7 @@ export class Character{
     }
 
     bulletCollision(object){
+        if(this.dead) return;
         if(!(object instanceof Bullet)) return;
         if(!object.isValid()) return;
         if(this.collisionsResultBullet[object.getName()]) return;
@@ -232,7 +228,7 @@ export class Character{
             const direction = data.direction;
             if (direction.length()>0){
                 direction.normalize();
-                totalRecoil.addScaledVector(direction, Math.min(data.impulse, Configs.MAX_IMPULSE));
+                totalRecoil.addScaledVector(direction, Math.min(data.impulse, GameConfigs.MAX_IMPULSE));
             }
         }
 
@@ -245,19 +241,20 @@ export class Character{
             const direction = data.direction;
             if (direction.length()>0){
                 direction.normalize();
-                totalRecoil.addScaledVector(direction, Math.min(data.impulse, Configs.MAX_IMPULSE));
+                totalRecoil.addScaledVector(direction, Math.min(data.impulse, GameConfigs.MAX_IMPULSE));
             }
         }
 
         if(totalDamage>0){
+            totalRecoil.clampLength(0, GameConfigs.MAX_KNOCK);
             this.collisionsResultBullet = {};
             this.collisionsResultShip = {};
             this.lastDamage = GameState.clock.getElapsedTime();
             const cameraRecoil = totalRecoil.clone().multiplyScalar(0.5);
             const shake = new Vector3(
-                (Math.random() - 0.5) * 0.05,
-                (Math.random() - 0.5) * 0.05,
-                (Math.random() - 0.5) * 0.03
+                (Math.random() - 0.5) * 0.002,
+                (Math.random() - 0.5) * 0.002,
+                (Math.random() - 0.5) * 0.002
             );
             cameraRecoil.add(shake);
             GameState.cameraRecoilOffset = cameraRecoil;
@@ -293,7 +290,7 @@ export class Character{
 
         const cameraPos = shipPos.clone().add(cameraOffset);
         cameraPos.add(GameState.cameraRecoilOffset);
-        GameState.cameraRecoilOffset.multiplyScalar(0.9);
+        GameState.cameraRecoilOffset.multiplyScalar(0.7);
         GameState.camera.position.lerp(cameraPos, 0.2);
         
         const forward = new Vector3(0,1,0);
@@ -373,8 +370,18 @@ export class Character{
         return total.clone();
     }
 
-    getWorldPosition(){ return this.obj.getWorldPosition(new Vector3()); }
+    getWorldPosition(){ 
+        if(!this.root || !this.loaded) {
+            console.warn(this.getName() + 'Position not found');
+            return new Vector3(100,100,100);
+        }
+        return this.obj.getWorldPosition(new Vector3()); 
+    }
     getWorldDirection(){
+        if(!this.root || !this.loaded) {
+            console.warn(this.getName() + 'Direction not found');
+            return new Vector3();
+        }
         const direction = new Vector3(0, 1, 0);
         direction.applyQuaternion(this.root.quaternion);
         direction.normalize();

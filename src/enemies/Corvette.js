@@ -6,7 +6,7 @@ export class Corvette extends Enemy{
     constructor(position, scene, team){
         super("spaceship1", position, scene, team);
         this.name += 'Corvette' + GameState.npcUUID;
-        GameState.npcsUUID++;
+        GameState.npcUUID++;
         this.MAX_SPEED = 2;
         this.ACCELERATION = 1.5;
         this.TURN_SPEED = 0.5;
@@ -26,7 +26,7 @@ export class Corvette extends Enemy{
         this.target = null;
         this.targetLastSeen = 0;
 
-        this.mainGun = new SimpleGun(this,scene);
+        this.mainGun = new SimpleGun(this);
     }
 
     update(time){
@@ -86,11 +86,12 @@ export class Corvette extends Enemy{
                 throw new Error('Unknown behavior');
         }
 
-
-        // this.obj.position.addScaledVector(this.vel, time);
+        if (!this.vel||isNaN(this.vel.x)||isNaN(this.vel.y)||isNaN(this.vel.z)) this.vel = new Vector3();
         const gravityVector = this.computeGravity();
+        if(isNaN(gravityVector.x)||isNaN(gravityVector.y)||isNaN(gravityVector.z)) gravityVector.set(0,0,0);
         const targetPos = this.obj.position.clone().addScaledVector(this.vel, time);
-        this.obj.position.lerp(targetPos, 0.1);
+        if(!isNaN(targetPos.x)||!isNaN(targetPos.y)||!isNaN(targetPos.z))
+            this.obj.position.lerp(targetPos, 0.1);
         this.vel.addScaledVector(gravityVector, time);
     }
 

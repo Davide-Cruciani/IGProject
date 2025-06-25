@@ -1,3 +1,6 @@
+import { Pause } from "./PauseHandler";
+import { resetGame } from "./Restart";
+
 class GameOverHandler{
     constructor(){
         this.mainElement = document.createElement('div');
@@ -10,20 +13,20 @@ class GameOverHandler{
         this.button.textContent = 'Retry?';
         this.mainElement.appendChild(this.textElement);
         this.mainElement.appendChild(this.button);
-        this.restartFunction = ()=>{
-
-
+        this.button.addEventListener('click', ()=>{
+            Pause.unlock();
+            resetGame();
             this.mainElement.style.display = 'none';
-        }
-        this.button.addEventListener('click', this.restartFunction);
+        });
         document.body.appendChild(this.mainElement);
-    
     }
     showGameOverScreen(){
         this.mainElement.style.display = 'flex';
+        if(document.pointerLockElement){
+            document.exitPointerLock();
+        }
+        Pause.lock();   
     }
-
-
 } 
 
 export const GameOver = new GameOverHandler();

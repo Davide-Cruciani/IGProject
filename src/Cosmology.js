@@ -1,33 +1,9 @@
 import { Group, Vector3, Mesh } from "three";
 import * as THREE from 'three';
 import { GameState } from '@/GameState';
-import { Configs } from '@/Configs';
+import { GameConfigs } from '@/GameConfigs';
 
-export const BLOOM_LAYER = 1;
-
-const STAR_FS = `
-    uniform vec3 glowColor;
-    uniform float intensity;
-    uniform float fade;
-    varying vec3 vNormal;
-    varying vec3 vWorldPos;
-    void main() {
-        vec3 viewDirection = normalize(cameraPosition - vWorldPos);
-        float glow = pow(intensity - dot(vNormal, viewDirection), fade);
-        gl_FragColor = vec4(glowColor, glow);
-    }
-`;
-
-const STAR_VS = `
-    varying vec3 vNormal;
-    varying vec3 vWorldPos;
-    void main() {
-        vNormal = normalize(normalMatrix * normal);
-        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-        vWorldPos = worldPosition.xyz;
-        gl_Position = projectionMatrix * viewMatrix * worldPosition;
-    }
-`;
+const TEXTURE_LIST = ['RedRock02_2K', 'GreyRock02_2K', 'SeasideRocks02_2K', 'BrownRock09_2K'];
 
 export function generatePlanetPosition(){
     const sunPos = GameState.sun.getWorldPosition();
@@ -45,9 +21,26 @@ export function generatePlanetPosition(){
     return sunPos.clone().add(offset);
 }
 export class Planet{
-    constructor(position, radius, mass, color) {
+    constructor(position, radius, mass, type) {
         this.INIT_SPEED = 10;
         this.ROTATION_SPEED = 0.1;
+        const textureLoad = new THREE.TextureLoader();
+
+        const base = textureLoad.load(`/assets/planetsMaps/${TEXTURE_LIST[type]}_BaseColor.png`, (tex) => {
+            console.log("Loaded:", tex.image?.src);
+        });
+        const normal = textureLoad.load(`/assets/planetsMaps/${TEXTURE_LIST[type]}_Normal.png`, (tex) => {
+            console.log("Loaded:", tex.image?.src);
+        });
+        const roughness = textureLoad.load(`/assets/planetsMaps/${TEXTURE_LIST[type]}_Roughness.png`, (tex) => {
+            console.log("Loaded:", tex.image?.src);
+        });
+        const ao = textureLoad.load(`/assets/planetsMaps/${TEXTURE_LIST[type]}_AO.png`, (tex) => {
+            console.log("Loaded:", tex.image?.src);
+        });
+        const height = textureLoad.load(`/assets/planetsMaps/${TEXTURE_LIST[type]}_Height.png`, (tex) => {
+            console.log("Loaded:", tex.image?.src);
+        });
 
         this.size = radius;
         this.name = "planet" + GameState.planetUUID;
@@ -58,8 +51,14 @@ export class Planet{
         this.collisionMemory = {}
 
         this.geometry = new THREE.SphereGeometry(radius, 32,32);
-        this.mtl = new THREE.MeshPhongMaterial({
-            color:color,
+        this.geometry.attributes.uv2 = this.geometry.attributes.uv;
+        this.mtl = new THREE.MeshStandardMaterial({
+            map:base,
+            normalMap:normal,
+            aoMap:ao,
+            roughness:roughness,
+            displacementMap:height,
+            displacementScale:0.1
         });
         this.atmGeometry = new THREE.SphereGeometry(radius * 1.05, 32,32);
         this.atmMtl = new THREE.MeshPhongMaterial({
@@ -80,6 +79,10 @@ export class Planet{
     getMesh(){ return this.mesh; }
 
     getMass(){ return this.mass; }
+
+    setVisible(state){
+        this.mesh.visible = state;
+    }
 
     getWorldPosition(){
         this.mesh.updateMatrixWorld(true);
@@ -108,9 +111,10 @@ export class Planet{
         vel.addScaledVector(axis2, Math.sin(angle));
         
         const massSun = GameState.sun.getMass();
-        const orbitalSpeed = Math.sqrt(massSun * Configs.gravitation / Math.max(distance, 1));
+        const orbitalSpeed = Math.sqrt(massSun * GameConfigs.GRAVITATION / Math.max(distance, 1));
 
         this.speed = vel.multiplyScalar(orbitalSpeed);
+        GameState.scene.add(this.mesh);
     }
 
     update(time){
@@ -144,7 +148,7 @@ export class Planet{
             const distance = vectorToPlanet.length();
             if (distance <= 0 || isNaN(distance)) return;
             
-            const acceleration = planet.getMass()*Configs.gravitation / Math.max(distance*distance, 1);
+            const acceleration = planet.getMass()*GameConfigs.GRAVITATION / Math.max(distance*distance, 1);
 
             sumVector.add(vectorToPlanet.clone().normalize().multiplyScalar(acceleration));
         })
@@ -224,43 +228,39 @@ export class Star{
         this.size = radius;
         this.mass = mass;
         this.name = 'sun';
-        this.light = new THREE.DirectionalLight(0xffc100,1);
+        this.light = new THREE.DirectionalLight(0xffc100,5);
         this.geometry = new THREE.SphereGeometry(radius, 32,32);
         this.mtl = new THREE.MeshBasicMaterial({
             map:sunTexture,
+            color: 0xffaa00
         });
-
-        this.glowMtl = new THREE.ShaderMaterial({
-            uniforms: {
-                glowColor: { value: new THREE.Color(0xffc100) },
-                intensity: { value: 1.0 }, 
-                fade: { value: 2.0 }
-            },
-            vertexShader: STAR_VS,
-            fragmentShader: STAR_FS,
-            side: THREE.BackSide,
-            blending: THREE.AdditiveBlending,
-            transparent: true,
-            depthWrite: false
-        });
-        this.glowGeometry = new THREE.SphereGeometry(radius * 1.05, 64, 64);
         
         this.mesh = new Mesh(this.geometry, this.mtl);
-        this.glowMesh = new Mesh(this.glowGeometry, this.glowMtl);
+        this.spriteMap = textureLoader.load('./assets/starsprite.png');
+        this.spriteMaterial = new THREE.SpriteMaterial({
+        map: this.spriteMap,
+        color: 0xffc100,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false,
+        });
+        this.glowSprite = new THREE.Sprite(this.spriteMaterial);
+        this.glowSprite.scale.set(radius * 5, radius * 5, 1);
+        this.glowSprite.position.copy(position);
+
+        GameState.scene.add(this.glowSprite);
         
         this.group = new Group();
         this.group.add(this.light);
         this.group.add(this.mesh);
-        this.group.add(this.glowMesh);
+        this.group.add(this.glowSprite);
+
         this.group.position.copy(position);
 
+        GameState.scene.add(this.light);
+        GameState.scene.add(this.group);
 
-        this.group.traverse((child)=>{
-            if(child.isMesh){
-                child.layers.set(BLOOM_LAYER);
-                child.layers.enable(0);
-            }
-        });
+
     }
     
     getVelocity(){
@@ -290,5 +290,6 @@ export class Star{
 
     update(time){
         this.light.intensity = 1.0 + 0.1 * Math.sin(time * 5.0);
+        this.mesh.rotation.y += time*0.1;
     }
 }

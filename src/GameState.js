@@ -1,6 +1,5 @@
 export const GameState = {
     npcs:[],
-    objects:[],
     bullets:[],
     planets:[],
     player:null,

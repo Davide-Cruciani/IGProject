@@ -91,3 +91,26 @@ export class Shotgun extends SimpleGun{
         }
     }
 }
+
+export class RocketLauncher extends SimpleGun{
+    constructor(ship){
+        super(ship);
+        this.CD = 10;
+        this.BULLET_TTL = 15;
+        this.NAME = "RocketLauncher";
+
+    }
+    shoot(){
+        const elapsed = this.timeKeeper.getElapsedTime();
+        if (elapsed - this.timeLastBullet > this.CD){
+                const shipPos = this.ship.getWorldPosition();
+                const shipDir = this.ship.getWorldDirection();
+                const name = this.createBulletName(); 
+                const bullet = new Bullet(shipPos, shipDir, this.ship, 0.07, name);
+                this.timeLastBullet = elapsed;
+                bullet.setTTL(this.BULLET_TTL);
+                GameState.bullets.push(bullet);
+                GameState.scene.add(bullet.getMesh());
+            }
+    }
+}

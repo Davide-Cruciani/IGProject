@@ -1,5 +1,6 @@
 import { SphereGeometry, TextureLoader, MeshBasicMaterial, Mesh } from "three";
 import * as THREE from 'three'
+import { GameConfigs } from "@/GameConfigs";
 
 export class Skysphere{
     constructor(){
@@ -16,7 +17,7 @@ export class Skysphere{
         texture.encoding = THREE.sRGBEncoding;
 
 
-        const geometry = new SphereGeometry(1000, 60, 40);
+        const geometry = new SphereGeometry(GameConfigs.SKYBOX_RADIUS, 60, 40);
 
         const uv = geometry.attributes.uv;
         for (let i = 0; i < uv.count; i++) {

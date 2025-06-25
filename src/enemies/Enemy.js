@@ -2,7 +2,7 @@ import { MTLLoader, OBJLoader} from "three/examples/jsm/Addons.js";
 import { Vector3, Quaternion } from "three";
 import { AlertIcon } from "../UserInterface";
 import { GameState } from "@/GameState";
-import { Configs } from "@/Configs";
+import { GameConfigs } from "@/GameConfigs";
 import { Character } from "../Character";
 import { Planet, Star } from "../Cosmology";
 import { Bullet } from "../weapons/Bullet";
@@ -27,7 +27,6 @@ export class Enemy{
         this.lastDamage = 0;
         this.vel = new Vector3();
 
-
         const mtlLoader = new MTLLoader();
                 mtlLoader.setPath(this.path);
                 mtlLoader.load(path+".mtl", 
@@ -48,6 +47,9 @@ export class Enemy{
                                 obj.rotation.set(Math.PI/2,0,0);
                                 
                                 obj.position.copy(position);
+                                const forward = new Vector3(0,1,0);
+                                forward.applyQuaternion(obj.quaternion);
+                                obj.rotation.copy(forward.normalize());
                                 this.obj = obj;
                                 this.loaded = true;
                                 GameState.scene.add(obj);
@@ -55,7 +57,7 @@ export class Enemy{
                                 this.alert = new AlertIcon();
                                 this.obj.add(this.alert.getElement());
                                 this.alert.setVisible(false);
-                                console.log(`[${this.getName()}] model loaded`);
+                                console.log(`[${this.getName()}] Loaded`);
                             }, 
                             (err)=>{ console.log(err); }
                         );
@@ -93,7 +95,7 @@ export class Enemy{
 
             const distance = vectorToPlanet.length();
             if (distance < 0 || isNaN(distance)) return;
-            const gravityAcc = Configs.gravitation*planet.getMass() / (distance*distance);
+            const gravityAcc = GameConfigs.GRAVITATION*planet.getMass() / (distance*distance);
 
             sumVector.add(vectorToPlanet.clone().normalize().multiplyScalar(gravityAcc));
         });
@@ -205,20 +207,20 @@ export class Enemy{
 
             const massCoefficient = (myMass*otherMass)/(myMass+otherMass);
 
-            const momentum = massCoefficient *impactSpeed * Configs.impactMultiplier;
+            const momentum = massCoefficient *impactSpeed * GameConfigs.IMPACT_MUL;
             const impactDamage = 0.5 * momentum * impactSpeed;
             
             var ramFactor = (direction.angleTo(this.getWorldDirection()) < Math.PI/4)? 0.25: 0.5;
 
             const report = {
                 damage: impactDamage/(myMass*ramFactor),
-                impulse: momentum/myMass,
+                impulse: Math.min(momentum/myMass, GameConfigs.MAX_RAM_DAMAGE),
                 direction: normDirection.clone().multiplyScalar(-1)
             }
 
             const reportOther = {
                 damage: impactDamage*(ramFactor)/otherMass,
-                impulse: momentum/otherMass,
+                impulse: Math.min(momentum/otherMass, GameConfigs.MAX_RAM_DAMAGE),
                 direction: normDirection.clone()
             }
             console.log(`[${this.getName()}] hit [${object.getName()}]: `, report);
@@ -252,16 +254,18 @@ export class Enemy{
         const totalRecoil = new Vector3();
         const vulnerable = GameState.clock.getElapsedTime() - this.lastDamage > this.DAMAGE_CD;
         
+        if (!this.vel||isNaN(this.vel.x)||isNaN(this.vel.y)||isNaN(this.vel.z)) this.vel = new Vector3();
+
         for (const bullet in this.collisionsResultBullet){
             const data = this.collisionsResultBullet[bullet];
             console.log('Bullet collision data:', data);
             if(vulnerable)
                 totalDamage += data.damage;
-            
+                this.takeDamage(data.damage);
             const direction = data.direction;
             if (direction.length()>0){
                 direction.normalize();
-                totalRecoil.addScaledVector(direction, Math.min(data.impulse, Configs.MAX_IMPULSE));
+                totalRecoil.addScaledVector(direction, Math.min(data.impulse, GameConfigs.MAX_IMPULSE));
             }
         }
 
@@ -270,20 +274,20 @@ export class Enemy{
             console.log('Ship collision data:', data);
             if(vulnerable)
                 totalDamage += data.damage;
+                this.takeDamage(data.damage);
             const direction = data.direction;
             if (direction.length()>0){
                 direction.normalize();
-                totalRecoil.addScaledVector(direction, Math.min(data.impulse, Configs.MAX_IMPULSE));
+                totalRecoil.addScaledVector(direction, Math.min(data.impulse, GameConfigs.MAX_IMPULSE));
             }
         }
         if (totalDamage>0){
             this.collisionsResultBullet = {};
             this.collisionsResultShip = {};
-            this.takeDamage(totalDamage);
             this.lastDamage = GameState.clock.getElapsedTime();
+            console.log(`[${this.getName()}] Total recoil: `, totalRecoil);
             if(this.obj)
-                this.vel.add(totalRecoil);                
-            
+                this.vel.add(totalRecoil);
         }
     }
 

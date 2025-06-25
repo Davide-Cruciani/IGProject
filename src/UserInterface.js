@@ -280,26 +280,3 @@ export class Compass extends HudElement{
         this.group.scale.set(0.2,0.2,0.2);
     }
 }
-
-export class PauseHandler{
-    constructor(){
-        this.active = false;
-        this.element = document.createElement('div');
-        this.element.id = 'pause-overlay';
-        this.element.innerText = 'PAUSE';
-        document.body.appendChild(this.element);
-    }
-
-    activate(){
-        if(this.active) return;
-        this.element.classList.add('visible');
-        this.active = true;
-    }
-
-    deactivate(){
-        if(!this.active) return;
-        this.element.classList.remove('visible');
-        this.active = false;
-    }
-
-}
