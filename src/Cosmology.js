@@ -117,7 +117,8 @@ export class Planet{
         GameState.scene.add(this.mesh);
     }
 
-    update(time){
+    update(dt){
+        const time = dt * GameState.timeDial;
         const gravity = this.computeGravity();
 
         const collisionsResult = new Vector3();

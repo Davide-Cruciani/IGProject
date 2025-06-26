@@ -56,9 +56,11 @@ hud.addElement(crossHair);
 const compass = new HUD.Compass();
 hud.addElement(compass);
 
+const dialBar = new HUD.DilationBar();
+hud.addElement(dialBar);
+
 const skysphere = new Skysphere();
 GameState.scene.add(skysphere.getMesh());
-
 
 const sun = new Star(new THREE.Vector3(0, 0, 0), 100, 50000);
 GameState.sun = sun;
@@ -78,11 +80,11 @@ for(let i=0; i<5; i++){
 
 GameState.scene.add(new THREE.AmbientLight(0xffffff,0.4));
 
-const player = new Character(new THREE.Vector3(0,-10,200));
+const player = new Character(new THREE.Vector3(0,-20,150));
 GameState.player = player;
 
 
-const enemy1 = new Corvette(new THREE.Vector3(0,30,200), "team1");
+const enemy1 = new Corvette(new THREE.Vector3(0,20,150), "team1");
 GameState.npcs.push(enemy1);
 
 
@@ -134,6 +136,10 @@ document.addEventListener('wheel', (event)=>{
 function loop(){
     if(GameState.paused) return;
 
+    if(GameState.dialActive)
+        GameState.timeDial = 0.25;
+    else
+        GameState.timeDial = 1;
     
     const elapsed = GameState.clock.getElapsedTime();
     var deltaTime = elapsed - GameState.fps.sinceLast;
@@ -214,6 +220,11 @@ function loop(){
         return bullet.isValid();
     });
     
+
+    GameState.explosions = GameState.explosions.filter((explosion)=>{
+        explosion.update(deltaTime);
+        return !explosion.finished;
+    });
 
     skysphere.getMesh().position.copy(GameState.camera.position);
     renderer.render(GameState.scene, GameState.camera);

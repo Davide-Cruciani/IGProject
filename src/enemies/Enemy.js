@@ -1,5 +1,6 @@
 import { MTLLoader, OBJLoader} from "three/examples/jsm/Addons.js";
-import { Vector3, Quaternion } from "three";
+import { Explosion } from "../ExplosionAnimation";
+import { Vector3, Quaternion, MathUtils } from "three";
 import { AlertIcon } from "../UserInterface";
 import { GameState } from "@/GameState";
 import { GameConfigs } from "@/GameConfigs";
@@ -123,13 +124,27 @@ export class Enemy{
         object.getMesh().getWorldPosition(objectPos);
         this.obj.getWorldPosition(currentPos);
         objectVector.subVectors(objectPos, currentPos);
+
+        const objectNormalized = objectVector.clone().normalize();
         
         const angleCosine = Math.cos(this.SIGHT_CONE);
-        const dot = forward.clone().normalize().dot(objectVector.clone().normalize());
+        const dot = forward.clone().dot(objectNormalized);
         const distance = objectVector.length();
 
-        if (dot > angleCosine)
+        if (dot > angleCosine){
+            for (const planet of [...GameState.planets,  GameState.sun]){
+                if(!planet.mesh.visible) continue;
+                const planetPos = planet.getWorldPosition();
+                const planetDir = new Vector3().subVectors(planetPos, currentPos);
+                const planetDot = planetDir.dot(objectNormalized);
+                if(planetDot <0 || planetDot > distance) continue;
+                const perpendicular = new Vector3().copy(planetDir);
+                perpendicular.sub(objectNormalized.clone().multiplyScalar(planetDot));
+                if(perpendicular.length() < planet.getHitboxSize())
+                    return -1;
+            }
             return distance;
+        }
         else return -1;
     }
 
@@ -148,6 +163,15 @@ export class Enemy{
 
     setTeam(team){ this.team = team; }
     getTeam(){ return this.team; }
+
+    explosion(){
+        if (this.dead) return;
+        this.dead = true;
+        const explosion = new Explosion(this);
+        GameState.explosions.push(explosion);
+
+    }
+
     destroy(){
         console.log(`[${this.getName()}] destroy() called`);
         GameState.npcs = GameState.npcs.filter((npc)=>{ return npc !== this});
@@ -299,12 +323,13 @@ export class Enemy{
     }
 
     takeDamage(damage){
+        if (this.dead) return;
         this.currentHealth -= damage;
         if(damage>0)
             console.log(`[${this.getName()}] Damage Taken ${damage}, currentHealth: ${this.currentHealth}`);
         if(this.currentHealth <= 0){
             this.currentHealth = 0;
-            this.destroy();
+            this.explosion();
         }
     }
 }

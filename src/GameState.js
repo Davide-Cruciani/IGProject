@@ -2,6 +2,7 @@ export const GameState = {
     npcs:[],
     bullets:[],
     planets:[],
+    explosions:[],
     player:null,
     camera:null,
     cameraRecoilOffset:null,

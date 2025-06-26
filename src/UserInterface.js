@@ -84,7 +84,6 @@ export class HealthBar extends HudElement{
         else
             this.filledBar.style.backgroundColor = 'darkred';
     }
-
 }
 
 export class WeaponIndicator extends HudElement{
@@ -278,5 +277,31 @@ export class Compass extends HudElement{
         offset.applyQuaternion(cameraQuaternion);
         this.group.position.copy(cameraPos.clone().add(offset));
         this.group.scale.set(0.2,0.2,0.2);
+    }
+}
+
+export class DilationBar extends HudElement{
+    constructor(){
+        super();
+        this.mainElement.id = 'dial-container'
+        this.filledBar = document.createElement('div');
+        this.filledBar.id = 'dial-bar'
+        this.mainElement.appendChild(this.filledBar);
+    }
+
+    update(){
+        if (!GameState.player) return;
+        const current = GameState.player.getDilationCharge();
+        const maxGauge = GameState.player.getDilationMax();
+        const CD = GameState.player.getDilationCD();
+        console.log('current :>> ', current);
+        console.log('max :>> ', maxGauge);
+        const percentage = Math.max(current/maxGauge*100, 0);
+        console.log('percentage :>> ', percentage);
+        this.filledBar.style.height = `${percentage}%`;
+        if (percentage > 25 && !CD)
+            this.filledBar.style.backgroundColor = 'cyan';
+        else
+            this.filledBar.style.backgroundColor = 'red';
     }
 }

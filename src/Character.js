@@ -11,6 +11,7 @@ import { Enemy } from "./enemies/Enemy";
 import { Planet, Star } from "./Cosmology";
 import { Bullet } from "./weapons/Bullet";
 import { Rocket } from "./weapons/Rocket";
+import { Explosion } from "./ExplosionAnimation";
 
 
 export class Character{
@@ -25,9 +26,13 @@ export class Character{
         this.HITBOX_RANGE = 1.5;
         this.MASS = 10;
         this.DAMAGE_CD = 0.5;
+        this.MAX_D_GAUGE = 4;
+        this.DILATION_OVERUSE_CD = 6;
+
 
         this.lastDamage = 0;
 
+        this.dCD = 0;
         this.weaponList = []
         this.weaponList.push(new WEAPON.SimpleGun(this))
         this.weaponList.push(new WEAPON.Shotgun(this));
@@ -44,6 +49,8 @@ export class Character{
         this.pitch = 0;
 
         this.loaded = false;
+
+        this.dilationGauge = this.MAX_D_GAUGE;
 
         this.vel = 0;
         this.latVel = 0;
@@ -92,6 +99,8 @@ export class Character{
     update(time){
         if(this.dead) return;
         if(!this.root || !this.loaded) return;
+        
+        this.handleDilation(time);
         this.dealWithCollisions();
 
         this.yaw -= PeripheralsInputs['mouseX'] * this.SENSITIVITY;
@@ -400,22 +409,93 @@ export class Character{
         return direction;
     }
     getTeam(){ return this.team; }
+
     getHealth(){ return this.currentHp; }
+    
     getMaxHealth() {return this.maxHp; }
-    die(){
-        GameState.scene.remove(this.root);
-        this.dead = true;
+
+    destroy(){
+        if (this.root) {
+            GameState.scene.remove(this.root);
+            this.root.traverse(obj => {
+                if (obj.isMesh) {
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) {
+                        if (Array.isArray(obj.material)) {
+                            obj.material.forEach(mat => mat.dispose());
+                        } else {
+                            obj.material.dispose();
+                        }
+                    }
+                }
+            });
+        }
+
+        this.obj = null;
+        this.root = null;
+        this.loaded = false;
+
         console.log(`[${this.getName()}] is Dead`);
         GameOver.showGameOverScreen();
     }
+
+    getDilationCharge(){
+        return this.dilationGauge;
+    }
+
+    getDilationMax(){
+        return this.MAX_D_GAUGE;
+    }
+    
+    getDilationCD(){
+        return this.dCD > 0;
+    }
+
+    explosion(){
+        if (this.dead) return;
+            this.dead = true;
+            const explosion = new Explosion(this);
+            GameState.explosions.push(explosion);
+    }
+
+    handleDilation(time){
+        this.dCD -= time;
+        this.dCD = Math.max(this.dCD, 0);
+        if(this.dCD > 0){
+            console.log("Dilation CD: ", this.dCD);
+            GameState.dialActive = false;
+            this.dilationGauge += time;
+            this.dilationGauge = Math.min(this.dilationGauge, this.MAX_D_GAUGE);
+            return;
+        }
+        if(PeripheralsInputs['space'] === 1){
+            this.dilationGauge -= time;
+            this.dilationGauge = Math.max(this.dilationGauge, 0);
+            if(this.dilationGauge === 0){
+                console.log("Dilation off");
+                GameState.dialActive = false;
+                this.dCD = this.DILATION_OVERUSE_CD;
+            }else{
+                console.log("Dilation on");
+                GameState.dialActive = true;
+            }
+        }else{
+            console.log("Dilation off");
+            GameState.dialActive = false;
+            this.dilationGauge += time;
+            this.dilationGauge = Math.min(this.dilationGauge, this.MAX_D_GAUGE);
+        }
+
+    }
+
     isDead(){ return this.dead; }
     takeDamage(damage){
+        if(this.dead) return;
         console.log(`[${this.getName()}] taking ${damage.toFixed(2)} damage (HP before: ${this.currentHp.toFixed(2)})`);
         this.currentHp -= damage
         if(this.currentHp <= 0){
             this.currentHp = 0;
-            this.die();
-            this.dead = true;
+            this.explosion();
         }
     }
 }

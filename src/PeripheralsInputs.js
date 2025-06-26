@@ -5,6 +5,7 @@ export const PeripheralsInputs = {
     's': 0,
     'w': 0,
     'c':0,
+    'space':0,
     'mb1':0,
     'mb0':0,
     'mouseX':0,
@@ -38,6 +39,9 @@ export function keydownHandler(event){
         case 'e':
             PeripheralsInputs['e'] = 1;
             break;
+        case ' ':
+            PeripheralsInputs['space'] = 1;
+            break;
         default:
             console.log('Unknown key: ' + event.key);
             break;
@@ -60,6 +64,9 @@ export function keyupHandler(event){
             break;
         case 's':
             PeripheralsInputs['s'] = 0;
+            break;
+        case ' ':
+            PeripheralsInputs['space'] = 0;
             break;
         default:
             break;

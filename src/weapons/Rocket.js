@@ -257,7 +257,7 @@ export class Rocket{
         if(!collision) return {itAppend: false};
         // console.log('boom');
 
-        this.detonate();
+        if(!this.exploded) this.detonate();
 
         const direction = dist.clone()
         if (direction.lengthSq() > 0) 
