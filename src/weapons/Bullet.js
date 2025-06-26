@@ -5,7 +5,7 @@ import { Planet, Star } from "../Cosmology";
 
 export class Bullet{
     constructor(position, direction, user, size, name) {
-        this.SPEED = 10;
+        this.SPEED = 20;
         this.MASS = 2;
         this.MAX_DAMAGE = 50;
         this.TTL = 0;
@@ -152,15 +152,15 @@ export class Bullet{
     }
 
     hit(object){
-        if(object === this.user || !this.valid) return {itAppend: false};
+        if(object === this.user || !this.valid) return {occurred: false};
         const otherPos = object.getWorldPosition();
         const myPos = this.getWorldPosition();
-        if(!myPos) return {itAppend: false};
+        if(!myPos) return {occurred: false};
         const dist = new THREE.Vector3();
         dist.subVectors(otherPos, myPos);
 
         const collision = dist.length() < this.getHitboxSize() + object.getHitboxSize();
-        if(!collision) return {itAppend: false};
+        if(!collision) return {occurred: false};
 
         const direction = dist.clone()
         if (direction.lengthSq() > 0) 
@@ -176,7 +176,8 @@ export class Bullet{
             damage: clampedDMG,
             direction: direction,
             impulse: clampedIMP,
-            itAppend: true
+            occurred: true,
+            sender:this.user
         }
         this.valid = false;
         this.delete();

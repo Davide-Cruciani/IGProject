@@ -83,9 +83,28 @@ GameState.scene.add(new THREE.AmbientLight(0xffffff,0.4));
 const player = new Character(new THREE.Vector3(0,-20,150));
 GameState.player = player;
 
+// const enemy = new Corvette(new THREE.Vector3(0,20,150), "team1");
+// GameState.npcs.push(enemy);
 
-const enemy1 = new Corvette(new THREE.Vector3(0,20,150), "team1");
-GameState.npcs.push(enemy1);
+
+for (let i=0; i<3; i++){
+    const position = new THREE.Vector3(
+        Math.random()*100-50,
+        Math.random()*100-50,
+        150
+    );
+    const enemy = new Corvette(position, "team1");
+    GameState.npcs.push(enemy);
+}
+for (let i=0; i<3; i++){
+    const position = new THREE.Vector3(
+        Math.random()*100-50,
+        Math.random()*100-50,
+        150
+    );
+    const enemy = new Corvette(position, "team2");
+    GameState.npcs.push(enemy);
+}
 
 
 document.addEventListener('mousedown', IOHAND.mousedownHandler);
@@ -132,8 +151,17 @@ document.addEventListener('wheel', (event)=>{
     GameState.zoom.level = Math.min(GameState.zoom.max, Math.max(GameState.zoom.level, GameState.zoom.min));
 });
 
+window.addEventListener('beforeunload', () => {
+  if(renderer){
+    renderer.dispose();
+    renderer.forceContextLoss();
+    renderer.context = null;
+    if(renderer.domElement.parentNode)
+      renderer.domElement.parentNode.removeChild(renderer.domElement);
+  }
+});
 
-function loop(){
+function loop(currentTime){
     if(GameState.paused) return;
 
     if(GameState.dialActive)
@@ -141,13 +169,13 @@ function loop(){
     else
         GameState.timeDial = 1;
     
-    const elapsed = GameState.clock.getElapsedTime();
-    var deltaTime = elapsed - GameState.fps.sinceLast;
-    deltaTime = Math.min(deltaTime, 0.05);
+    currentTime /= 1000;
+
+    var deltaTime = currentTime - GameState.fps.sinceLast;
     
     if(deltaTime < FRAME_DURATION) return;
     
-    GameState.fps.sinceLast += deltaTime;
+    GameState.fps.sinceLast = currentTime;
     GameState.fps.frameCount++;
 
     if (GameState.player && GameState.player.loaded){

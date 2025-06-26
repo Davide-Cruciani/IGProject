@@ -2,6 +2,7 @@ import { Group, Vector3, Mesh } from "three";
 import * as THREE from 'three';
 import { GameState } from '@/GameState';
 import { GameConfigs } from '@/GameConfigs';
+import { Explosion } from "./ExplosionAnimation";
 
 const TEXTURE_LIST = ['RedRock02_2K', 'GreyRock02_2K', 'SeasideRocks02_2K', 'BrownRock09_2K'];
 
@@ -42,6 +43,8 @@ export class Planet{
             console.log("Loaded:", tex.image?.src);
         });
 
+
+        this.boom = false;
         this.size = radius;
         this.name = "planet" + GameState.planetUUID;
         GameState.planetUUID++;
@@ -73,6 +76,7 @@ export class Planet{
         this.mesh.add(this.atmMesh);
         this.mesh.position.copy(position);
         this.speed = new Vector3(1,0,0);
+        this.rotDir = Math.floor(Math.random()*3);
 
     }
 
@@ -132,7 +136,19 @@ export class Planet{
         this.speed.addScaledVector(gravity, time);
         this.speed.addScaledVector(collisionsResult, time);
         this.mesh.position.addScaledVector(this.speed, time);
-        this.mesh.rotation.y += time*this.ROTATION_SPEED
+        switch (this.rotDir) {
+            case 0:
+                this.mesh.rotation.y += time*this.ROTATION_SPEED
+                break;
+            case 1:
+                this.mesh.rotation.x += time*this.ROTATION_SPEED
+                break;
+            case 2:
+                this.mesh.rotation.z += time*this.ROTATION_SPEED
+                break;
+            default:
+                break;
+        }
     }
 
     computeGravity(){
@@ -157,7 +173,16 @@ export class Planet{
     }
 
     detonation(){
+        if(this.boom) return;
+        this.boom = true;
+        const explode = new Explosion(this);
+        GameState.explosions.push(explode);
+    }
 
+    destroy(){
+        this.mesh.position.set(generatePlanetPosition());
+        this.initPlanetSpeed(other.getWorldPosition());
+        this.boom = false;
     }
 
     checkSun(){
@@ -170,8 +195,6 @@ export class Planet{
         direction.subVectors(sunPos, myPos);
         if(direction.length() < sunRad + this.getHitboxSize()){
             this.detonation();
-            this.mesh.position.set(generatePlanetPosition());
-            this.initPlanetSpeed(other.getWorldPosition());
         }
 
     }
@@ -181,7 +204,7 @@ export class Planet{
         if (this.collisionMemory[other.getName()]) return;
         
         const myPos = this.getWorldPosition();
-        const otherPos = this.getWorldPosition();
+        const otherPos = other.getWorldPosition();
 
         const dist = new Vector3();
         dist.subVectors(otherPos, myPos);
@@ -211,8 +234,10 @@ export class Planet{
 
                 this.collisionMemory[other.getName()] = report;
                 other.collisionMemory[this.getName()] = otherReport;
-                this.mesh.position.addScaledVector(dirMine, deltaL/2);
-                other.mesh.position.addScaledVector(dirOther, deltaL/2);
+                if (deltaL>0){
+                    this.mesh.position.addScaledVector(dirMine, deltaL/2);
+                    other.mesh.position.addScaledVector(dirOther, deltaL/2);
+                }
             }
 
         }

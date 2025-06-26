@@ -242,10 +242,10 @@ export class Rocket{
     }
 
     hit(object){
-        if(object === this.user || !this.valid) return {itAppend: false};
+        if(object === this.user || !this.valid) return {occurred: false};
         const otherPos = object.getWorldPosition();
         const myPos = this.getWorldPosition();
-        if(!myPos) return {itAppend: false};
+        if(!myPos) return {occurred: false};
         const dist = new THREE.Vector3();
         dist.subVectors(otherPos, myPos);
 
@@ -254,7 +254,7 @@ export class Rocket{
         // console.log("Hit check:", distance, this.getHitboxSize(), object.getHitboxSize());
 
         const collision = distance < this.getHitboxSize() + object.getHitboxSize();
-        if(!collision) return {itAppend: false};
+        if(!collision) return {occurred: false};
         // console.log('boom');
 
         if(!this.exploded) this.detonate();
@@ -273,7 +273,7 @@ export class Rocket{
             damage: clampedDMG,
             direction: direction,
             impulse: clampedIMP,
-            itAppend: true
+            occurred: true
         }
         return report; 
     }

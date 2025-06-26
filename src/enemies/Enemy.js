@@ -8,6 +8,8 @@ import { Character } from "../Character";
 import { Planet, Star } from "../Cosmology";
 import { Bullet } from "../weapons/Bullet";
 import { Rocket } from "../weapons/Rocket";
+
+import { AxesHelper } from 'three';
 export class Enemy{
     constructor(path, position, team){
         this.SIGHT_CONE = 1;
@@ -28,6 +30,7 @@ export class Enemy{
         this.name = team;
         this.lastDamage = 0;
         this.vel = new Vector3();
+        this.gravityVector = new Vector3();
 
         const mtlLoader = new MTLLoader();
                 mtlLoader.setPath(this.path);
@@ -46,12 +49,9 @@ export class Enemy{
                             (obj)=>{
                                 
                                 obj.scale.set(0.5,0.5,0.5);
-                                obj.rotation.set(Math.PI/2,0,0);
                                 
                                 obj.position.copy(position);
-                                const forward = new Vector3(0,1,0);
-                                forward.applyQuaternion(obj.quaternion);
-                                obj.rotation.copy(forward.normalize());
+                                obj.quaternion.setFromAxisAngle(new Vector3(1, 0, 0), Math.PI / 2);
                                 this.obj = obj;
                                 this.loaded = true;
                                 GameState.scene.add(obj);
@@ -59,6 +59,9 @@ export class Enemy{
                                 this.alert = new AlertIcon();
                                 this.obj.add(this.alert.getElement());
                                 this.alert.setVisible(false);
+                                const axesHelper = new AxesHelper(5);
+                                this.obj.add(axesHelper);
+
                                 console.log(`[${this.getName()}] Loaded`);
                             }, 
                             (err)=>{ console.log(err); }
@@ -72,12 +75,10 @@ export class Enemy{
     isDead(){ return this.dead; }
     getWorldPosition(){
         if(!this.loaded || !this.obj) return new Vector3(0,0,0);
-        this.obj.updateMatrixWorld(true);
         return this.obj.getWorldPosition(new Vector3());
     }
     getWorldDirection(){
         if (!this.loaded || !this.obj) return new Vector3(0,0,1);
-        this.obj.updateMatrixWorld(true);
 
         const forward = new Vector3(0,0,1)
         const quaternion = new Quaternion();
@@ -87,7 +88,7 @@ export class Enemy{
     }
     
     computeGravity(){
-        var sumVector = new Vector3(0,0,0);
+        this.gravityVector.set(0,0,0);
         const shipPos = this.getWorldPosition();
         GameState.planets.forEach((planet) => {
             const planetPos = planet.getWorldPosition();
@@ -99,10 +100,10 @@ export class Enemy{
             if (distance < 0 || isNaN(distance)) return;
             const gravityAcc = GameConfigs.GRAVITATION*planet.getMass() / (distance*distance);
 
-            sumVector.add(vectorToPlanet.clone().normalize().multiplyScalar(gravityAcc));
+            this.gravityVector.add(vectorToPlanet.clone().normalize().multiplyScalar(gravityAcc));
         });
 
-        return sumVector;
+        return this.gravityVector;
     }
 
     isSeen(object){
@@ -255,8 +256,10 @@ export class Enemy{
             console.log(`[${this.getName()}] hit [${object.getName()}]: `, report);
             this.collisionsResultShip[object.getName()] = report;
             object.collisionsResultShip[this.getName()] = reportOther;
-            this.getMesh().position.addScaledVector(dirMine, deltaL/2);
-            object.getMesh().position.addScaledVector(dirOther, deltaL/2);
+            if(deltaL > 0){
+                this.getMesh().position.addScaledVector(dirMine, deltaL/2);
+                object.getMesh().position.addScaledVector(dirOther, deltaL/2);
+            }
         }
     }
 
@@ -276,8 +279,10 @@ export class Enemy{
         if(!object.isValid()) return;
         if(this.collisionsResultBullet[object.getName()]) return;
         const collisionReport = object.hit(this);
-        if(collisionReport.itAppend)
+        if(collisionReport.occurred){
             this.collisionsResultBullet[object.getName()] = collisionReport;
+            this.onAttack(collisionReport.sender);
+        }
     }
 
     dealWithCollisions(){
@@ -321,6 +326,8 @@ export class Enemy{
                 this.vel.add(totalRecoil);
         }
     }
+
+    onAttack(enemy){}
 
     takeDamage(damage){
         if (this.dead) return;

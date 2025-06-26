@@ -210,8 +210,10 @@ export class Character{
             }
             this.collisionsResultShip[object.getName()] = report;
             object.collisionsResultShip[this.getName()] = reportOther;
-            this.getMesh().position.addScaledVector(dirMine, deltaL/2);
-            object.getMesh().position.addScaledVector(dirOther, deltaL/2);
+            if(deltaL > 0){
+                this.getMesh().position.addScaledVector(dirMine, deltaL/2);
+                object.getMesh().position.addScaledVector(dirOther, deltaL/2);
+            }
         }
     }
 
@@ -232,7 +234,7 @@ export class Character{
         if(!object.isValid()) return;
         if(this.collisionsResultBullet[object.getName()]) return;
         const collisionReport = object.hit(this);
-        if(collisionReport.itAppend)
+        if(collisionReport.occurred)
             this.collisionsResultBullet[object.getName()] = collisionReport;
     }
 
@@ -462,7 +464,7 @@ export class Character{
         this.dCD -= time;
         this.dCD = Math.max(this.dCD, 0);
         if(this.dCD > 0){
-            console.log("Dilation CD: ", this.dCD);
+            // console.log("Dilation CD: ", this.dCD);
             GameState.dialActive = false;
             this.dilationGauge += time;
             this.dilationGauge = Math.min(this.dilationGauge, this.MAX_D_GAUGE);
@@ -472,15 +474,15 @@ export class Character{
             this.dilationGauge -= time;
             this.dilationGauge = Math.max(this.dilationGauge, 0);
             if(this.dilationGauge === 0){
-                console.log("Dilation off");
+                // console.log("Dilation off");
                 GameState.dialActive = false;
                 this.dCD = this.DILATION_OVERUSE_CD;
             }else{
-                console.log("Dilation on");
+                // console.log("Dilation on");
                 GameState.dialActive = true;
             }
         }else{
-            console.log("Dilation off");
+            // console.log("Dilation off");
             GameState.dialActive = false;
             this.dilationGauge += time;
             this.dilationGauge = Math.min(this.dilationGauge, this.MAX_D_GAUGE);

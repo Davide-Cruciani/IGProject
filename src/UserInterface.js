@@ -294,10 +294,7 @@ export class DilationBar extends HudElement{
         const current = GameState.player.getDilationCharge();
         const maxGauge = GameState.player.getDilationMax();
         const CD = GameState.player.getDilationCD();
-        console.log('current :>> ', current);
-        console.log('max :>> ', maxGauge);
         const percentage = Math.max(current/maxGauge*100, 0);
-        console.log('percentage :>> ', percentage);
         this.filledBar.style.height = `${percentage}%`;
         if (percentage > 25 && !CD)
             this.filledBar.style.backgroundColor = 'cyan';

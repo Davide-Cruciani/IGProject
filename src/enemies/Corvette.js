@@ -1,41 +1,57 @@
+import { Vector3, Quaternion, Matrix4, Euler } from "three";
+import * as THREE from 'three';
 import { SimpleGun } from "../weapons/Weapons";
 import { Enemy } from "./Enemy";
 import { GameState } from "@/GameState";
 
 export class Corvette extends Enemy{
-    constructor(position, scene, team){
-        super("spaceship1", position, scene, team);
-        this.name += 'Corvette' + GameState.npcUUID;
+    constructor(position, team){
+        super("spaceship1", position, team);
+        this.name = 'Corvette-'+ team +"-"+ GameState.npcUUID;
         GameState.npcUUID++;
         this.MAX_SPEED = 2;
-        this.ACCELERATION = 1.5;
-        this.TURN_SPEED = 0.5;
+        this.ACCELERATION = 3;
+        this.TURN_SPEED = Math.PI/4;
         this.BASE_DRAG = 1.005;
         this.MAX_HEALTH = 500;
         this.MASS = 10;
         this.SIGHT_CONE = Math.PI/4;
         this.SIGHT_DISTANCE = 60;
         this.AGGRO_GRACE = 5;
-        this.AGGRO_TIME = 5;
+        this.AGGRO_TIME = 15;
+        this.RADAR_CD = 60;
+        this.MOV_CD = 7;
+        this.SAFETY_DIST = 30;
+        this.REST_ANGLES = new Vector3(Math.PI/2,2*Math.PI*Math.random(),0);
 
 
-        this.scene = scene;
+        this.celestialDanger = false;
+        this.waitForRadar = 0;
         this.suspects = [];
-        this.currentBehavior = 'wander';
+        this.lastBehavior = this.currentBehavior;
         this.currentHealth = this.MAX_HEALTH;
         this.target = null;
         this.targetLastSeen = 0;
+        this.orderReceived = false;
+        this.destination = null;
+        this.sinceArrival = 0;
+
 
         this.mainGun = new SimpleGun(this);
     }
 
-    update(time){
+    update(dt){
+        const time = dt*GameState.timeDial;
         if (!this.loaded || !this.obj) return;
-
+        this.obj.updateMatrixWorld(true);
         this.dealWithCollisions();
+
+        if(this.waitForRadar > 0) this.waitForRadar -= time;
+        if(this.sinceArrival > 0) this.sinceArrival -= time;
 
         if(!this.target && this.suspects.length > 0){
             this.checkOnSuspects(time);
+            console.log(this.suspects.length)
         }
         else if(!this.target){
             this.findSuspects();
@@ -50,6 +66,7 @@ export class Corvette extends Enemy{
             }else if(this.targetLastSeen > this.AGGRO_TIME){
                 this.target = null;
                 this.targetLastSeen = 0;
+                this.targetPosition = null;
                 this.alert.setVisible(false);
             }else{
                 this.targetLastSeen+=time;
@@ -58,41 +75,152 @@ export class Corvette extends Enemy{
             }
         }
 
-
-        const targetConfiguration = {
-            position: this.getWorldPosition(),
-            orientation: this.getWorldDirection()
-        };
+        this.whereToGo();
 
         this.movement(time);
     }
 
-    movement(time){
-        if(!this.loaded || !this.obj) return;
-        switch (this.currentBehavior) {
-            case 'wander':
-                
-                break;
-        
-            case 'chase':
-
-                break;
-
-            case 'follow':
-
-                break;
-
-            default:
-                throw new Error('Unknown behavior');
+    onAttack(enemy){
+        if(!enemy || enemy.getTeam() === this.team) return;
+        this.aggroTimeout = this.AGGRO_TIME;
+        if(this.target !== enemy){
+            this.lastBehavior = this.currentBehavior;
         }
 
-        if (!this.vel||isNaN(this.vel.x)||isNaN(this.vel.y)||isNaN(this.vel.z)) this.vel = new Vector3();
-        const gravityVector = this.computeGravity();
-        if(isNaN(gravityVector.x)||isNaN(gravityVector.y)||isNaN(gravityVector.z)) gravityVector.set(0,0,0);
-        const targetPos = this.obj.position.clone().addScaledVector(this.vel, time);
-        if(!isNaN(targetPos.x)||!isNaN(targetPos.y)||!isNaN(targetPos.z))
-            this.obj.position.lerp(targetPos, 0.1);
-        this.vel.addScaledVector(gravityVector, time);
+        this.target = enemy;
+    }
+
+    goto(pos){
+        this.destination = pos.clone();
+    }
+
+    whereToGo(){
+        const pos = this.getWorldPosition();
+        var minDist = Infinity;
+        var closestBody = null;
+        for(const body of [...GameState.planets, GameState.sun]){
+            if(body.getMesh().visible === false) continue;
+            const bodyPos = body.getWorldPosition();
+            const dist = new Vector3().subVectors(bodyPos, pos);
+            const length = dist.length();
+            if(length > this.SAFETY_DIST) continue;
+            if(length < minDist){
+                minDist = length;
+                closestBody = body;
+            } 
+        }
+        if(closestBody){
+            const bodyPos = closestBody.getWorldPosition();
+            const toBody = new Vector3().subVectors(bodyPos, pos);
+            const toDestination = this.forward.clone().normalize();
+
+            const projectionLength = toBody.dot(toDestination);
+
+            const closestPoint = pos.clone().add(toDestination.clone().multiplyScalar(projectionLength));
+
+            const distToPath = bodyPos.distanceTo(closestPoint);
+
+            const safetyRadius = this.SAFETY_DIST * 0.9;
+
+            if(distToPath < safetyRadius && projectionLength > 0){
+                let avoidanceDir = new Vector3().crossVectors(toDestination, toBody).normalize();
+
+                if(avoidanceDir.lengthSq() < 0.0001) {
+                    avoidanceDir.set(toDestination.y, -toDestination.x, toDestination.z).normalize();
+                }
+
+                const avoidanceStrength = safetyRadius * 1.5;
+                const avoidanceVector = avoidanceDir.multiplyScalar(avoidanceStrength);
+
+                this.forward.add(avoidanceVector).normalize();
+
+                console.log(this.getName(), "Avoiding collision with", closestBody.getName());
+            }
+        }
+
+        if(!this.destination && this.sinceArrival <= 0){
+            if(!this.target && this.waitForRadar > 0){
+                const newOffset = new Vector3(
+                    (Math.random()-0.5)*40 + 10,
+                    (Math.random()-0.5)*10 + 10,
+                    (Math.random()-0.5)*40 +10
+                )
+                this.destination = this.getWorldPosition().clone().add(newOffset);
+                // console.log("Decided to go to random dir: ", this.destination);
+            }
+            else if(!this.target){
+                
+                var closest = Infinity;
+                var name = ''
+                for(const ship of [...GameState.npcs, GameState.player]){
+                    const OtherPos = ship.getWorldPosition();
+                    const dist = new Vector3().subVectors(OtherPos, pos);
+                    if(dist.length() < closest){
+                        this.destination = OtherPos;
+                        closest = dist.length();
+                        name = ship.getName();
+                    } 
+                }
+                console.log(this.getName(), "Radar: ", name);
+                this.waitForRadar = this.RADAR_CD;
+                // console.log("used radar");
+            }else{
+                this.destination = this.target.getWorldPosition();
+                // console.log("Chasing player");
+            }
+        }else if(this.target){
+            this.destination = this.target.getWorldPosition();
+            // console.log("Have a destination because: Chasing player");
+        }
+    }
+
+    movement(time){
+        if(this.sinceArrival > 0) return;
+        if(!this.loaded || !this.obj) return;
+        this.computeGravity();
+        const integrity = isNaN(this.gravityVector.x)||isNaN(this.gravityVector.y)||isNaN(this.gravityVector.z);
+        if(integrity) this.gravityVector.set(0,0,0);
+    
+        const dest = this.destination.clone();
+        const position = this.getWorldPosition();
+
+        const direction = new Vector3().subVectors(dest, position);
+        // console.log('Distance from dest', direction.length());
+        if(direction.length()> 2){
+            const norm = direction.clone().normalize();
+
+            this.vel.addScaledVector(norm, this.ACCELERATION*time);
+            this.vel.addScaledVector(this.gravityVector, time);
+            this.obj.position.addScaledVector(this.vel, time);
+            
+            if(this.target){
+                const targetVel = this.target.getVelocity();
+                const lookTarget  = dest.clone().addScaledVector(targetVel, time);
+                this.obj.lookAt(lookTarget);
+                this.obj.rotation.z = 0;
+            }
+            else{
+                this.obj.lookAt(dest);
+                this.obj.rotation.z = 0;
+            }
+            
+        }else{
+            this.vel.set(0,0,0);
+            this.sinceArrival = this.MOV_CD;
+            const currentRot = this.obj.rotation.clone();
+            const targetRot = this.REST_ANGLES;
+
+            const linearIntFactor = 0.2;
+
+            currentRot.x += (targetRot.x - currentRot.x) * linearIntFactor;
+            currentRot.y += (targetRot.y - currentRot.y) * linearIntFactor;
+            currentRot.z += (targetRot.z - currentRot.z) * linearIntFactor;
+
+            this.obj.rotation.set(currentRot.x, currentRot.y, currentRot.z);
+        }
+
+        // console.log("dest: ", this.destination.toArray());
+        // console.log("Vel: ",this.vel.toArray())
     }
 
     getVelocity(){
