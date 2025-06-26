@@ -1,6 +1,7 @@
 import { Clock, Vector3, Quaternion } from "three";
 import { Bullet } from "./Bullet";
 import { GameState } from "@/GameState";
+import { Rocket } from "./Rocket";
 
 
 export class DummyWeapon{
@@ -95,9 +96,9 @@ export class Shotgun extends SimpleGun{
 export class RocketLauncher extends SimpleGun{
     constructor(ship){
         super(ship);
-        this.CD = 10;
+        this.CD = 7;
         this.BULLET_TTL = 15;
-        this.NAME = "RocketLauncher";
+        this.NAME = "Rocket";
 
     }
     shoot(){
@@ -106,7 +107,7 @@ export class RocketLauncher extends SimpleGun{
                 const shipPos = this.ship.getWorldPosition();
                 const shipDir = this.ship.getWorldDirection();
                 const name = this.createBulletName(); 
-                const bullet = new Bullet(shipPos, shipDir, this.ship, 0.07, name);
+                const bullet = new Rocket(shipPos, shipDir, this.ship, 0.12, name);
                 this.timeLastBullet = elapsed;
                 bullet.setTTL(this.BULLET_TTL);
                 GameState.bullets.push(bullet);

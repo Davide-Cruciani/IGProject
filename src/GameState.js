@@ -23,4 +23,6 @@ export const GameState = {
     paused:false,
     npcUUID:0,
     planetUUID:0,
+    timeDial:1,
+    dialActive:false
 }

@@ -5,7 +5,7 @@ import { Planet, Star } from "../Cosmology";
 
 export class Bullet{
     constructor(position, direction, user, size, name) {
-        this.SPEED = 15;
+        this.SPEED = 10;
         this.MASS = 2;
         this.MAX_DAMAGE = 50;
         this.TTL = 0;
@@ -65,7 +65,8 @@ export class Bullet{
         this.TTL = time;
     }
 
-    update(time){
+    update(dt){
+        const time = dt * GameState.timeDial;
         if (!this.valid) {
             this.delete();
             return;

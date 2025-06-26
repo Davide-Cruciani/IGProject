@@ -1,4 +1,5 @@
 import * as WEAPON from "./weapons/Weapons";
+import { RocketLauncher } from "./weapons/Weapons";
 import { GameOver } from "@/GameOverHandler";
 import { GameState } from "@/GameState";
 import { GameConfigs } from "@/GameConfigs";
@@ -9,6 +10,7 @@ import { PeripheralsInputs } from "./PeripheralsInputs";
 import { Enemy } from "./enemies/Enemy";
 import { Planet, Star } from "./Cosmology";
 import { Bullet } from "./weapons/Bullet";
+import { Rocket } from "./weapons/Rocket";
 
 
 export class Character{
@@ -29,6 +31,7 @@ export class Character{
         this.weaponList = []
         this.weaponList.push(new WEAPON.SimpleGun(this))
         this.weaponList.push(new WEAPON.Shotgun(this));
+        this.weaponList.push(new RocketLauncher(this));
         this.dead = false;
 
         this.selectedWeapon = 0;
@@ -152,6 +155,13 @@ export class Character{
         const distance = direction.length();
         if(distance < this.getHitboxSize() + object.getHitboxSize()){
             const normDirection = direction.lengthSq() === 0 ? new Vector3(): direction.normalize();
+
+            const deltaL = (this.getHitboxSize() + object.getHitboxSize()) - distance;
+            const dirMine = normDirection.clone().multiplyScalar(-1);
+            const dirOther = normDirection.clone();
+            
+
+
             const myVel = this.getVelocity()
             const otherVel = object.getVelocity();
             const relativeVel = otherVel.clone().sub(myVel);
@@ -181,16 +191,18 @@ export class Character{
             const report = {
                 damage: impactDamage/(myMass*ramFactor),
                 impulse: Math.min(momentum/myMass, GameConfigs.MAX_RAM_DAMAGE),
-                direction: normDirection.clone().multiplyScalar(-1)
+                direction: dirMine
             }
 
             const reportOther = {
                 damage: impactDamage*(ramFactor)/otherMass,
                 impulse: Math.min(momentum/otherMass, GameConfigs.MAX_RAM_DAMAGE),
-                direction: normDirection.clone()
+                direction: dirOther
             }
             this.collisionsResultShip[object.getName()] = report;
             object.collisionsResultShip[this.getName()] = reportOther;
+            this.getMesh().position.addScaledVector(dirMine, deltaL/2);
+            object.getMesh().position.addScaledVector(dirOther, deltaL/2);
         }
     }
 
@@ -207,7 +219,7 @@ export class Character{
 
     bulletCollision(object){
         if(this.dead) return;
-        if(!(object instanceof Bullet)) return;
+        if(!(object instanceof Bullet) && !(object instanceof Rocket)) return;
         if(!object.isValid()) return;
         if(this.collisionsResultBullet[object.getName()]) return;
         const collisionReport = object.hit(this);

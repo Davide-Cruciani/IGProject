@@ -189,22 +189,29 @@ export class Planet{
             const otherVel = other.getVelocity();
             const relativeVel = otherVel.clone().sub(myVel);
 
+            
             const direction = (dist.lengthSq() === 0)? new Vector3(): dist.clone().normalize(); 
             const impactSpeed = relativeVel.dot(direction);
+            
+            const deltaL = (this.getHitboxSize() + other.getHitboxSize()) - dist.length();
+            const dirMine = direction.clone().multiplyScalar(-1);
+            const dirOther = direction.clone();
 
             if(impactSpeed < 0) {
                 const report = {
                     impulse: 1,
-                    direction: direction.clone().multiplyScalar(-1),
+                    direction: dirMine,
                 };
 
                 const otherReport = {
                     impulse: 1,
-                    direction: direction.clone()
+                    direction: dirOther
                 };
 
                 this.collisionMemory[other.getName()] = report;
                 other.collisionMemory[this.getName()] = otherReport;
+                this.mesh.position.addScaledVector(dirMine, deltaL/2);
+                other.mesh.position.addScaledVector(dirOther, deltaL/2);
             }
 
         }

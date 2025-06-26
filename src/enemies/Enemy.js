@@ -6,6 +6,7 @@ import { GameConfigs } from "@/GameConfigs";
 import { Character } from "../Character";
 import { Planet, Star } from "../Cosmology";
 import { Bullet } from "../weapons/Bullet";
+import { Rocket } from "../weapons/Rocket";
 export class Enemy{
     constructor(path, position, team){
         this.SIGHT_CONE = 1;
@@ -185,9 +186,13 @@ export class Enemy{
 
         const distance = direction.length();
         if(distance < this.getHitboxSize() + object.getHitboxSize()){
-            
-            
             const normDirection = direction.lengthSq() === 0 ? new Vector3(): direction.normalize();
+
+            const deltaL = (this.getHitboxSize() + object.getHitboxSize()) - distance;
+            const dirMine = normDirection.clone().multiplyScalar(-1);
+            const dirOther = normDirection.clone();
+            
+
             const myVel = this.getVelocity()
             const otherVel = object.getVelocity();
             const relativeVel = otherVel.clone().sub(myVel);
@@ -215,17 +220,19 @@ export class Enemy{
             const report = {
                 damage: impactDamage/(myMass*ramFactor),
                 impulse: Math.min(momentum/myMass, GameConfigs.MAX_RAM_DAMAGE),
-                direction: normDirection.clone().multiplyScalar(-1)
+                direction: dirMine
             }
 
             const reportOther = {
                 damage: impactDamage*(ramFactor)/otherMass,
                 impulse: Math.min(momentum/otherMass, GameConfigs.MAX_RAM_DAMAGE),
-                direction: normDirection.clone()
+                direction: dirOther
             }
             console.log(`[${this.getName()}] hit [${object.getName()}]: `, report);
             this.collisionsResultShip[object.getName()] = report;
             object.collisionsResultShip[this.getName()] = reportOther;
+            this.getMesh().position.addScaledVector(dirMine, deltaL/2);
+            object.getMesh().position.addScaledVector(dirOther, deltaL/2);
         }
     }
 
@@ -241,7 +248,7 @@ export class Enemy{
     }
 
     bulletCollision(object){
-        if(!(object instanceof Bullet)) return;
+        if(!(object instanceof Bullet) && !(object instanceof Rocket)) return;
         if(!object.isValid()) return;
         if(this.collisionsResultBullet[object.getName()]) return;
         const collisionReport = object.hit(this);

@@ -9,10 +9,6 @@ import * as HUD from './UserInterface.js';
 import { Pause } from './PauseHandler.js';
 import { GameState } from '@/GameState';
 import { GameConfigs } from './GameConfigs.js'
-// import { EffectComposer } from 'three/examples/jsm/Addons.js';
-// import { UnrealBloomPass } from 'three/examples/jsm/Addons.js';
-// import { RenderPass } from 'three/examples/jsm/Addons.js';
-// import { BloomMaterialHandler } from './BloomMaterialHandler.js';
 import { DebugBoard } from './Debugging.js';
 
 
@@ -35,19 +31,6 @@ renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMappingExposure = 2.0;
 document.body.appendChild(canvas);
 
-// const renderScene = new RenderPass(GameState.scene, GameState.camera);
-// const bloomPass = new UnrealBloomPass(
-//     new THREE.Vector2(window.innerWidth, window.innerHeight),
-//     1.5,
-//     1.0,
-//     0.0
-// );
-
-// const composer = new EffectComposer(renderer);
-// composer.addPass(renderScene);
-// composer.addPass(bloomPass);
-
-// const bloomMtlHandler = new BloomMaterialHandler();
 
 const textRenderer = new CSS2DRenderer();
 textRenderer.domElement.style.position = 'absolute';
@@ -233,13 +216,6 @@ function loop(){
     
 
     skysphere.getMesh().position.copy(GameState.camera.position);
-
-    // GameState.scene.traverse(bloomMtlHandler.darkenNonBloom);
-    // GameState.camera.layers.set(GameConfigs.BLOOM_LAYER);
-    // composer.render();
-    
-    // GameState.scene.traverse(bloomMtlHandler.restoreNormalMaterials);
-    // GameState.camera.layers.set(0);
     renderer.render(GameState.scene, GameState.camera);
     
     textRenderer.render(GameState.scene, GameState.camera);
