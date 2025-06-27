@@ -116,42 +116,6 @@
     left: 0;
 }
 
-#compass-container {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  width: 200px;
-  height: 20px;
-  overflow: hidden;
-  transform: translateX(-50%);
-  border: 1px solid white;
-}
-
-#compass-track {
-  position: absolute;
-  height: 100%;
-  white-space: nowrap;
-  color: white;
-  font-family: monospace;
-}
-
-#pitch-indicator-container {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  width: 20px;
-  height: 200px;
-  transform: translateY(-50%);
-  border: 1px solid white;
-}
-
-#pitch-indicator-line {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: white;
-}
 
 #pause-overlay {
     position: fixed;
@@ -170,6 +134,7 @@
     opacity: 0;
     transition: opacity 0.3s ease;
 }
+
 #pause-overlay.visible {
     opacity: 1;
     pointer-events: none;
@@ -204,4 +169,20 @@
   border: none;
   border-radius: 6px;
   color: white;
+}
+
+#score {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #ffff55;
+    text-shadow: 0 0 10px #ffaa00, 0 0 20px #ffaa00;
+    margin: 1rem 0;
+    text-align: center;
+    font-family: 'Orbitron', 'Arial', sans-serif;
+    letter-spacing: 1px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    border: 2px solid #ffaa00;
+    box-shadow: 0 0 12px rgba(255, 170, 0, 0.5);
 }

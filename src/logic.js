@@ -39,6 +39,50 @@ textRenderer.domElement.style.pointerEvents = 'none';
 textRenderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(textRenderer.domElement);
 
+const listener = new THREE.AudioListener();
+GameState.camera.add(listener);
+GameState.listener = listener;
+
+GameState.audioLoader = new THREE.AudioLoader();
+
+GameState.audioLoader.load('./sound/explosion.mp3',
+    (buffer) => {
+        GameState.explosionSoundBuffer = buffer;
+    },
+    undefined,
+    (err) => {
+        console.warn("Errore nel caricare explosion.mp3", err);
+    }
+);
+
+if (GameState.explosionSoundBuffer === undefined) {
+    console.warn(` explosionSoundBuffer is undefined; sound will not play.`);
+}
+
+GameState.audioLoader.load('./sound/gun.mp3', (buffer) => {
+    GameState.gunSoundBuffer = buffer;
+});
+
+if (GameState.gunSoundBuffer === undefined) {
+    console.warn(` gunSoundBuffer is undefined; sound will not play.`);
+}
+
+GameState.audioLoader.load('./sound/impact.mp3', (buffer) => {
+    GameState.impactSoundBuffer = buffer;
+});
+
+if (GameState.impactSoundBuffer === undefined) {
+    console.warn(`impactSoundBuffer is undefined; sound will not play.`);
+}
+
+GameState.audioLoader.load('./sound/rocket.mp3', (buffer) => {
+    GameState.rocketSoundBuffer = buffer;
+});
+
+if (GameState.rocketSoundBuffer === undefined) {
+    console.warn(` rocketSoundBuffer is undefined; sound will not play.`);
+}
+
 const hud = new HUD.Hud();
 
 const fpsDisplay = new HUD.FPSIndicator("FPS: ---");
@@ -53,16 +97,13 @@ hud.addElement(weaponIndicator);
 const crossHair = new HUD.CrossHair();
 hud.addElement(crossHair);
 
-const compass = new HUD.Compass();
-hud.addElement(compass);
-
 const dialBar = new HUD.DilationBar();
 hud.addElement(dialBar);
 
 const skysphere = new Skysphere();
 GameState.scene.add(skysphere.getMesh());
 
-const sun = new Star(new THREE.Vector3(0, 0, 0), 100, 50000);
+const sun = new Star(new THREE.Vector3(0, 0, 0), 70, 50000);
 GameState.sun = sun;
 
 
@@ -80,32 +121,11 @@ for(let i=0; i<5; i++){
 
 GameState.scene.add(new THREE.AmbientLight(0xffffff,0.4));
 
-const player = new Character(new THREE.Vector3(0,-20,150));
+const player = new Character(new THREE.Vector3(0,-200,0));
 GameState.player = player;
 
-// const enemy = new Corvette(new THREE.Vector3(0,20,150), "team1");
+// const enemy = new Corvette(new THREE.Vector3(0,-250,0), 1);
 // GameState.npcs.push(enemy);
-
-
-for (let i=0; i<3; i++){
-    const position = new THREE.Vector3(
-        Math.random()*100-50,
-        Math.random()*100-50,
-        150
-    );
-    const enemy = new Corvette(position, "team1");
-    GameState.npcs.push(enemy);
-}
-for (let i=0; i<3; i++){
-    const position = new THREE.Vector3(
-        Math.random()*100-50,
-        Math.random()*100-50,
-        150
-    );
-    const enemy = new Corvette(position, "team2");
-    GameState.npcs.push(enemy);
-}
-
 
 document.addEventListener('mousedown', IOHAND.mousedownHandler);
 document.addEventListener('mouseup', IOHAND.mouseupHandler);
@@ -117,6 +137,16 @@ GameState.paused = false;
 
 canvas.addEventListener('click', ()=>{
     canvas.requestPointerLock();
+    const audioContext = GameState.listener.context;
+
+    if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+            console.log('AudioContext ripreso correttamente.');
+            loadSounds();
+        }).catch((e) => {
+            console.warn('Errore nel riprendere AudioContext:', e);
+        });
+    }
     if(GameState.paused){
             console.log("Pause end");
             GameState.clock.start();
@@ -161,8 +191,78 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
+window.addEventListener('resize', () => {
+    GameState.camera.aspect = window.innerWidth / window.innerHeight;
+    GameState.camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    textRenderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+function loadSounds() {
+    const loader = GameState.audioLoader;
+
+    loader.load('./sound/explosion.mp3', (buffer) => {
+        GameState.explosionSoundBuffer = buffer;
+        console.log('Explosion sound loaded');
+    });
+
+    loader.load('./sound/gun.mp3', (buffer) => {
+        GameState.gunSoundBuffer = buffer;
+        console.log('Gun sound loaded');
+    });
+
+    loader.load('./sound/impact.mp3', (buffer) => {
+        GameState.impactSoundBuffer = buffer;
+        console.log('Impact sound loaded');
+    });
+
+    loader.load('./sound/rocket.mp3', (buffer) => {
+        GameState.rocketSoundBuffer = buffer;
+        console.log('Rocket sound loaded');
+    });
+}
+
+
+function spawnMobs(){
+    // console.log('MOB_CAP =', GameConfigs.MOB_CAP);
+    // console.log('NPCs count:', GameState.npcs.length);
+    // console.log('Player exists:', !!GameState.player);
+
+    const num_teams = 2;
+    const RADIUS = 50;
+
+    GameState.spawnOK = false;
+
+    
+    if(!GameState.player || !GameState.player.loaded || !GameState.player.root)
+        return;
+    const position = GameState.player.getWorldPosition();
+    // console.log("Player pos: ", position);
+    if(GameState.npcs.length < GameConfigs.MOB_CAP){
+        const diff = GameConfigs.MOB_CAP - GameState.npcs.length;
+        const slices = Math.floor(diff/num_teams)*num_teams;
+        const da = 2*Math.PI/slices;
+        for(let i=0; i<num_teams; i++){
+            for(let j=0; j<Math.floor(diff/num_teams); j++){
+                const angle = da * (i*3+j);
+                const offset = new THREE.Vector3(
+                        RADIUS * Math.cos(angle),
+                        RADIUS * Math.sin(angle),
+                        0
+                    );
+                const fin = position.clone().add(offset);
+                const enemy = new Corvette(fin, i);
+                GameState.npcs.push(enemy);
+            }
+        }
+        GameState.spawnOK = true;
+    }
+}
+
+
 function loop(currentTime){
     if(GameState.paused) return;
+
 
     if(GameState.dialActive)
         GameState.timeDial = 0.25;
@@ -175,6 +275,24 @@ function loop(currentTime){
     
     if(deltaTime < FRAME_DURATION) return;
     
+    // console.log('lastSpawn timer:', GameState.lastSpawn);
+
+    GameState.lastSpawn+=deltaTime;
+    if(GameState.lastSpawn > GameConfigs.SPAWN_CD){
+        spawnMobs();
+        if(GameState.spawnOK){
+            GameState.lastSpawn = 0;
+            console.log("Spawning");
+        }else{
+            console.log("Spawn failed");
+        }
+        GameState.spawnOK = false;
+    }else if(GameState.npcs.length === 0){
+        GameState.lastSpawn = GameConfigs.SPAWN_CD
+    }
+
+    GameState.score += deltaTime;
+
     GameState.fps.sinceLast = currentTime;
     GameState.fps.frameCount++;
 
@@ -264,3 +382,4 @@ function loop(currentTime){
 }
 
 renderer.setAnimationLoop(loop);
+

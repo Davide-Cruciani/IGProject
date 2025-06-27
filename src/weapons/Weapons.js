@@ -1,8 +1,8 @@
-import { Clock, Vector3, Quaternion } from "three";
+import { Clock, Vector3, Quaternion, PositionalAudio } from "three";
 import { Bullet } from "./Bullet";
 import { GameState } from "@/GameState";
 import { Rocket } from "./Rocket";
-
+import * as THREE from 'three';
 
 export class DummyWeapon{
     constructor(){
@@ -26,6 +26,14 @@ export class SimpleGun{
 
         this.timeKeeper = new Clock(true);
         this.timeLastBullet = 0;
+        if (GameState.gunSoundBuffer) {
+            this.sound = new THREE.PositionalAudio(GameState.listener);
+            this.sound.setBuffer(GameState.gunSoundBuffer);
+            this.sound.setRefDistance(20);
+            this.sound.setVolume(0.8);
+            this.sound.setLoop(false);
+            this.ship.getMesh().add(this.sound);
+        }
     }
 
     createBulletName(){
@@ -35,6 +43,14 @@ export class SimpleGun{
     }
 
     shoot(){
+        if (GameState.gunSoundBuffer && !this.sound) {
+            this.sound = new PositionalAudio(GameState.listener);
+            this.sound.setBuffer(GameState.gunSoundBuffer);
+            this.sound.setRefDistance(20);
+            this.sound.setVolume(0.8);
+            this.sound.setLoop(false);
+            this.ship.getMesh().add(this.sound);
+        }
         const elapsed = this.timeKeeper.getElapsedTime();
         if (elapsed - this.timeLastBullet > this.CD){
                 const shipPos = this.ship.getWorldPosition();
@@ -45,6 +61,7 @@ export class SimpleGun{
                 bullet.setTTL(this.BULLET_TTL);
                 GameState.bullets.push(bullet);
                 GameState.scene.add(bullet.getMesh());
+                if(this.sound) this.sound.play();
             }
     }
 
@@ -66,19 +83,32 @@ export class Shotgun extends SimpleGun{
         this.NAME = 'ShotGun';
         this.CD = 1.5;
         this.BULLET_TTL = 5;
-        this.BULLETS_IN_SHELL = 4;
+        this.BULLETS_IN_SHELL = 6;
         this.SPREAD = Math.PI/6;
     }
     shoot(){
+        if (GameState.gunSoundBuffer && !this.sound) {
+            this.sound = new PositionalAudio(GameState.listener);
+            this.sound.setBuffer(GameState.gunSoundBuffer);
+            this.sound.setRefDistance(20);
+            this.sound.setVolume(0.8);
+            this.sound.setLoop(false);
+            this.ship.getMesh().add(this.sound);
+        }
         const elapsed = this.timeKeeper.getElapsedTime();
         if (elapsed - this.timeLastBullet> this.CD){
             const shipPos = this.ship.getWorldPosition();
             const shipDir = this.ship.getWorldDirection();
-            for(let i=0;i<this.BULLETS_IN_SHELL;i++){
-                const randomAxis = new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-                const randomAngle = Math.random() * this.SPREAD;
+            shipDir.z = 0;
+            shipDir.normalize();
 
-                const spreadQuat = new Quaternion().setFromAxisAngle(randomAxis, randomAngle);
+            for(let i=0;i<this.BULLETS_IN_SHELL;i++){
+                const t = (i/(this,this.BULLETS_IN_SHELL-1));
+                const angleOffset = (t-0.5)*this.SPREAD;
+                const spreadQuat = new Quaternion().setFromAxisAngle(
+                    new Vector3(0, 0, 1),
+                    angleOffset
+                );
                 const spreadDir = shipDir.clone().applyQuaternion(spreadQuat).normalize();
                 const name = this.ship.getName() + this.idCounter;
 
@@ -88,6 +118,7 @@ export class Shotgun extends SimpleGun{
                 GameState.bullets.push(bullet);
                 GameState.scene.add(bullet.getMesh());
             }
+            if(this.sound) this.sound.play()
             this.timeLastBullet = elapsed;
         }
     }
@@ -99,9 +130,25 @@ export class RocketLauncher extends SimpleGun{
         this.CD = 7;
         this.BULLET_TTL = 15;
         this.NAME = "Rocket";
+        if (GameState.rocketSoundBuffer) {
+            this.sound = new PositionalAudio(GameState.listener);
+            this.sound.setBuffer(GameState.rocketSoundBuffer);
+            this.sound.setRefDistance(20);
+            this.sound.setVolume(0.8);
+            this.sound.setLoop(false);
+            this.ship.getMesh().add(this.sound);
+        }
 
     }
     shoot(){
+        if (GameState.rocketSoundBuffer && !this.sound) {
+            this.sound = new PositionalAudio(GameState.listener);
+            this.sound.setBuffer(GameState.rocketSoundBuffer);
+            this.sound.setRefDistance(20);
+            this.sound.setVolume(0.8);
+            this.sound.setLoop(false);
+            this.ship.getMesh().add(this.sound);
+        }
         const elapsed = this.timeKeeper.getElapsedTime();
         if (elapsed - this.timeLastBullet > this.CD){
                 const shipPos = this.ship.getWorldPosition();
@@ -112,6 +159,7 @@ export class RocketLauncher extends SimpleGun{
                 bullet.setTTL(this.BULLET_TTL);
                 GameState.bullets.push(bullet);
                 GameState.scene.add(bullet.getMesh());
+                if(this.sound) this.sound.play();
             }
     }
 }

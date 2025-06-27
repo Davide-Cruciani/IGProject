@@ -174,7 +174,7 @@ export class CrossHair extends HudElement{
     constructor(){
         super();
         this.mainElement.id = 'cross-hair'
-        this.DISTANCE = 100;
+        this.DISTANCE = 50;
     }
     update(){
         const player = GameState.player;
@@ -195,90 +195,6 @@ export class CrossHair extends HudElement{
     }
 }
 
-const SPHERE_VS = `
-        varying vec3 vNormal;
-        void main() {
-            vNormal = normal;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-    `;
-const SPHERE_FS = `
-        varying vec3 vNormal;
-        void main() {
-            if (vNormal.y > 0.0)
-                gl_FragColor = vec4(0.1, 0.3, 1.0, 1); // Top half: blueish
-            else
-                gl_FragColor = vec4(0.8, 0.1, 0.1, 1); // Bottom half: reddish
-        }
-    `;
-
-export class Compass extends HudElement{
-    constructor() {
-        super();
-        this.SEGMENTS = 12;
-        this.group = new THREE.Group();
-
-        this.sphereGroup = new THREE.Group();
-        this.sphereMtl = new THREE.ShaderMaterial({
-            uniforms:{},
-            vertexShader: SPHERE_VS,
-            fragmentShader: SPHERE_FS,
-            transparent:false,
-            side: THREE.DoubleSide
-        });
-        this.sphereGeo = new THREE.SphereGeometry(1,16,16);
-        this.sphereMesh = new THREE.Mesh(this.sphereGeo, this.sphereMtl);
-
-        this.sphereGroup.add(this.sphereMesh);
-
-        this.lineGroup = new THREE.Group();
-        for(let i=0;i<this.SEGMENTS;i++){
-            const angle = (i/this.SEGMENTS) * Math.PI*2;
-            const points = [];
-            for(let y=-1;y<=1;y+=0.05){
-                const x = Math.cos(angle) * Math.sqrt(1 - y*y);
-                const z = Math.sin(angle) * Math.sqrt(1 - y*y);
-                points.push(new THREE.Vector3(x,y,z));
-            }
-            const geometry = new THREE.BufferGeometry().setFromPoints(points);
-            const color = (i!=0)? 0xffffff: 0x00ff00
-            const line = new THREE.Line(
-                geometry,
-                new THREE.LineBasicMaterial({color: color, opacity:0.5, transparent:true})
-            );
-            this.lineGroup.add(line);
-            this.sphereGroup.add(this.lineGroup);
-
-            this.group.add(this.sphereGroup);
-
-            GameState.scene.add(this.group);
-
-        }
-    }
-
-    update(){
-        const player = GameState.player;
-        const camera = GameState.camera;
-
-        if(!player || !camera) return;
-
-        const pitch = player.pitch;
-        const yaw = player.yaw;
-
-        this.sphereGroup.rotation.x = pitch;
-        this.sphereGroup.rotation.y = yaw;
-
-        const cameraQuaternion = camera.quaternion.clone();
-        this.group.quaternion.copy(cameraQuaternion);
-
-        const cameraPos = camera.position.clone();
-
-        const offset = new THREE.Vector3(1.4, -0.6, -1.2);
-        offset.applyQuaternion(cameraQuaternion);
-        this.group.position.copy(cameraPos.clone().add(offset));
-        this.group.scale.set(0.2,0.2,0.2);
-    }
-}
 
 export class DilationBar extends HudElement{
     constructor(){

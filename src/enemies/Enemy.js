@@ -8,14 +8,18 @@ import { Character } from "../Character";
 import { Planet, Star } from "../Cosmology";
 import { Bullet } from "../weapons/Bullet";
 import { Rocket } from "../weapons/Rocket";
-
+import * as THREE from 'three';
+import { SimpleGun } from "../weapons/Weapons";
 import { AxesHelper } from 'three';
+
+// Green and yellow
+const TEAM_COLORS = [0x33ff33,0xffff33]
 export class Enemy{
     constructor(path, position, team){
         this.SIGHT_CONE = 1;
         this.MAX_HEALTH = 10;
         this.MASS = 1;
-        this.HITBOX_RANGE = 1.5;
+        this.HITBOX_RANGE = 4;
         this.DAMAGE_CD = 0.5;
         
         this.collisionsResultBullet = {};
@@ -31,7 +35,7 @@ export class Enemy{
         this.lastDamage = 0;
         this.vel = new Vector3();
         this.gravityVector = new Vector3();
-
+        this.damageThreshold = this.MAX_HEALTH*0.8;
         const mtlLoader = new MTLLoader();
                 mtlLoader.setPath(this.path);
                 mtlLoader.load(path+".mtl", 
@@ -41,7 +45,7 @@ export class Enemy{
                         const objectLoader = new OBJLoader();
                         objectLoader.setPath(this.path);
                         if (!mtl){
-                            console.log('Material not found');
+                            // console.log('Material not found');
                             throw new Error;
                         }
                         objectLoader.setMaterials(mtl);
@@ -56,13 +60,34 @@ export class Enemy{
                                 this.loaded = true;
                                 GameState.scene.add(obj);
 
+                                const teamColor = TEAM_COLORS[this.team]
+
+                                obj.traverse((child) => {
+                                    if (child.isMesh) {
+                                        child.material.dispose();
+                                        child.material = new THREE.MeshStandardMaterial({
+                                            color: teamColor,
+                                            metalness: 0.2,
+                                            roughness: 0.7,
+                                        });
+                                    }
+                                });
+
+
                                 this.alert = new AlertIcon();
                                 this.obj.add(this.alert.getElement());
                                 this.alert.setVisible(false);
-                                const axesHelper = new AxesHelper(5);
-                                this.obj.add(axesHelper);
+                                this.mainGun = new SimpleGun(this);
+                                if (GameState.impactSoundBuffer) {
+                                    this.sound = new THREE.PositionalAudio(GameState.listener);
+                                    this.sound.setBuffer(GameState.impactSoundBuffer);
+                                    this.sound.setRefDistance(20);
+                                    this.sound.setVolume(0.8);
+                                    this.sound.setLoop(false);
+                                    this.obj.add(this.sound);
+                                }
 
-                                console.log(`[${this.getName()}] Loaded`);
+                                // console.log(`[${this.getName()}] Loaded`);
                             }, 
                             (err)=>{ console.log(err); }
                         );
@@ -80,10 +105,12 @@ export class Enemy{
     getWorldDirection(){
         if (!this.loaded || !this.obj) return new Vector3(0,0,1);
 
-        const forward = new Vector3(0,0,1)
+        const forward = new Vector3(0,0,1);
         const quaternion = new Quaternion();
-        this.obj.getWorldQuaternion(quaternion)
+        this.obj.getWorldQuaternion(quaternion);
         forward.applyQuaternion(quaternion);
+
+        forward.z = 0;
         return forward.normalize();
     }
     
@@ -119,12 +146,16 @@ export class Enemy{
         const currentPos = new Vector3();
         const forward = new Vector3(0,0,1);
         forward.applyQuaternion(quaternion).normalize();
+        forward.z = 0;
         const objectVector = new Vector3();
         
 
         object.getMesh().getWorldPosition(objectPos);
         this.obj.getWorldPosition(currentPos);
         objectVector.subVectors(objectPos, currentPos);
+
+        currentPos.z = 0;
+        objectPos.z = 0;
 
         const objectNormalized = objectVector.clone().normalize();
         
@@ -136,6 +167,7 @@ export class Enemy{
             for (const planet of [...GameState.planets,  GameState.sun]){
                 if(!planet.mesh.visible) continue;
                 const planetPos = planet.getWorldPosition();
+                planetPos.z = 0;
                 const planetDir = new Vector3().subVectors(planetPos, currentPos);
                 const planetDot = planetDir.dot(objectNormalized);
                 if(planetDot <0 || planetDot > distance) continue;
@@ -150,7 +182,9 @@ export class Enemy{
     }
 
     getVelocity(){
-        return this.vel;
+        const vel = this.vel.clone();
+        vel.z = 0;
+        return vel
     }
 
     
@@ -174,7 +208,7 @@ export class Enemy{
     }
 
     destroy(){
-        console.log(`[${this.getName()}] destroy() called`);
+        // console.log(`[${this.getName()}] destroy() called`);
         GameState.npcs = GameState.npcs.filter((npc)=>{ return npc !== this});
         if(this.mlt){
             for (const material of Object.values(this.mlt.materials)){
@@ -200,6 +234,7 @@ export class Enemy{
     }
 
     shipCollision(object){
+        
         if(!(object instanceof Character) || !(object instanceof Enemy)) return;
         if(object.isDead()) return;
         if(object === this) return; 
@@ -208,6 +243,7 @@ export class Enemy{
         const otherPos = object.getWorldPosition();
         const direction = new Vector3();
         direction.subVectors(otherPos, currentPos);
+        direction.z = 0;
 
         const distance = direction.length();
         if(distance < this.getHitboxSize() + object.getHitboxSize()){
@@ -218,8 +254,10 @@ export class Enemy{
             const dirOther = normDirection.clone();
             
 
-            const myVel = this.getVelocity()
+            const myVel = this.getVelocity();
+            myVel.z = 0;
             const otherVel = object.getVelocity();
+            otherVel.z = 0;
             const relativeVel = otherVel.clone().sub(myVel);
             
             const impactSpeed = relativeVel.dot(normDirection);
@@ -229,9 +267,9 @@ export class Enemy{
             const otherMass = object.getMass();
 
             if( myMass <=0 || otherMass <= 0){
-                console.log("Invalid masses");
-                console.log(this.getName, myMass);
-                console.log(object.getName(), otherMass);   
+                // console.log("Invalid masses");
+                // console.log(this.getName, myMass);
+                // console.log(object.getName(), otherMass);   
                 return;
             }
 
@@ -244,16 +282,16 @@ export class Enemy{
 
             const report = {
                 damage: impactDamage/(myMass*ramFactor),
-                impulse: Math.min(momentum/myMass, GameConfigs.MAX_RAM_DAMAGE),
+                impulse: momentum/myMass,
                 direction: dirMine
             }
 
             const reportOther = {
                 damage: impactDamage*(ramFactor)/otherMass,
-                impulse: Math.min(momentum/otherMass, GameConfigs.MAX_RAM_DAMAGE),
+                impulse: momentum/otherMass,
                 direction: dirOther
             }
-            console.log(`[${this.getName()}] hit [${object.getName()}]: `, report);
+            // console.log(`[${this.getName()}] hit [${object.getName()}]: `, report);
             this.collisionsResultShip[object.getName()] = report;
             object.collisionsResultShip[this.getName()] = reportOther;
             if(deltaL > 0){
@@ -294,10 +332,11 @@ export class Enemy{
 
         for (const bullet in this.collisionsResultBullet){
             const data = this.collisionsResultBullet[bullet];
-            console.log('Bullet collision data:', data);
-            if(vulnerable)
+            // console.log('Bullet collision data:', data);
+            if(vulnerable){
                 totalDamage += data.damage;
                 this.takeDamage(data.damage);
+            }
             const direction = data.direction;
             if (direction.length()>0){
                 direction.normalize();
@@ -307,10 +346,11 @@ export class Enemy{
 
         for (const ship in this.collisionsResultShip){
             const data = this.collisionsResultShip[ship];
-            console.log('Ship collision data:', data);
-            if(vulnerable)
+            // console.log('Ship collision data:', data);
+            if(vulnerable){
                 totalDamage += data.damage;
                 this.takeDamage(data.damage);
+            }
             const direction = data.direction;
             if (direction.length()>0){
                 direction.normalize();
@@ -321,7 +361,7 @@ export class Enemy{
             this.collisionsResultBullet = {};
             this.collisionsResultShip = {};
             this.lastDamage = GameState.clock.getElapsedTime();
-            console.log(`[${this.getName()}] Total recoil: `, totalRecoil);
+            // console.log(`[${this.getName()}] Total recoil: `, totalRecoil);
             if(this.obj)
                 this.vel.add(totalRecoil);
         }
@@ -331,7 +371,8 @@ export class Enemy{
 
     takeDamage(damage){
         if (this.dead) return;
-        this.currentHealth -= damage;
+        this.currentHealth -= Math.min(damage, this.damageThreshold);
+        this.damageThreshold -= damage;
         if(damage>0)
             console.log(`[${this.getName()}] Damage Taken ${damage}, currentHealth: ${this.currentHealth}`);
         if(this.currentHealth <= 0){
@@ -339,4 +380,16 @@ export class Enemy{
             this.explosion();
         }
     }
+
+    update(){
+        if (GameState.impactSoundBuffer && !this.sound) {
+            this.sound = new THREE.PositionalAudio(GameState.listener);
+            this.sound.setBuffer(GameState.impactSoundBuffer);
+            this.sound.setRefDistance(20);
+            this.sound.setVolume(0.8);
+            this.sound.setLoop(false);
+            this.obj.add(this.sound);
+        }
+    }
+
 }

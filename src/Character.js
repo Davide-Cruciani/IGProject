@@ -12,6 +12,7 @@ import { Planet, Star } from "./Cosmology";
 import { Bullet } from "./weapons/Bullet";
 import { Rocket } from "./weapons/Rocket";
 import { Explosion } from "./ExplosionAnimation";
+import * as THREE from 'three';
 
 
 export class Character{
@@ -22,31 +23,27 @@ export class Character{
         this.BASE_DRAG = 1.005;
         this.BREAKS_DRAG = 1.05;
         this.SENSITIVITY = 0.003;
-        this.MAX_PITCH = Math.PI / 2 * 0.98;
-        this.HITBOX_RANGE = 1.5;
+        this.HITBOX_RANGE = 3;
         this.MASS = 10;
         this.DAMAGE_CD = 0.5;
         this.MAX_D_GAUGE = 4;
         this.DILATION_OVERUSE_CD = 6;
+        
 
 
         this.lastDamage = 0;
-
+        this.damageThreshold = this.MAX_HP/10;
         this.dCD = 0;
         this.weaponList = []
-        this.weaponList.push(new WEAPON.SimpleGun(this))
-        this.weaponList.push(new WEAPON.Shotgun(this));
-        this.weaponList.push(new RocketLauncher(this));
         this.dead = false;
 
         this.selectedWeapon = 0;
         
-        this.maxHp = 1000;
-        this.currentHp = this.maxHp;
+        this.MAX_HP = 1000;
+        this.currentHp = this.MAX_HP;
 
         this.team = 'player';   
         this.yaw = 0;
-        this.pitch = 0;
 
         this.loaded = false;
 
@@ -54,12 +51,14 @@ export class Character{
 
         this.vel = 0;
         this.latVel = 0;
-        this.vertVel = 0;
 
         this.targetPos = position.clone();
 
         this.collisionsResultBullet = {};
         this.collisionsResultShip = {};
+
+        
+        
 
         const path = "assets/PlayerCharacter"
 
@@ -84,6 +83,19 @@ export class Character{
 
                         this.root.add(this.obj);
 
+                        if (GameState.impactSoundBuffer) {
+                            this.sound = new THREE.PositionalAudio(GameState.listener);
+                            this.sound.setBuffer(GameState.impactSoundBuffer);
+                            this.sound.setRefDistance(20);
+                            this.sound.setVolume(0.8);
+                            this.sound.setLoop(false);
+                            this.root.add(this.sound);
+                        }
+
+                        this.weaponList.push(new WEAPON.SimpleGun(this))
+                        this.weaponList.push(new WEAPON.Shotgun(this));
+                        this.weaponList.push(new RocketLauncher(this));
+
                         GameState.scene.add(this.root);
                         console.log(`[${this.getName()}] model loaded`);
                     },
@@ -97,6 +109,21 @@ export class Character{
     };
 
     update(time){
+        // console.log("Local pos:", GameState.player.position);
+        // console.log("World pos:", GameState.player.getWorldPosition(new THREE.Vector3()));
+        // if(this.collisionsResultBullet.length) 
+        // console.log("Player bull rep:", this.collisionsResultBullet);
+        // console.log("Player ship rep:",this.collisionsResultShip);
+
+        this.damageThreshold = this.MAX_HP/0.7;
+        if (GameState.impactSoundBuffer && !this.sound) {
+            this.sound = new THREE.PositionalAudio(GameState.listener);
+            this.sound.setBuffer(GameState.impactSoundBuffer);
+            this.sound.setRefDistance(20);
+            this.sound.setVolume(0.8);
+            this.sound.setLoop(false);
+            this.root.add(this.sound);
+        }
         if(this.dead) return;
         if(!this.root || !this.loaded) return;
         
@@ -104,20 +131,19 @@ export class Character{
         this.dealWithCollisions();
 
         this.yaw -= PeripheralsInputs['mouseX'] * this.SENSITIVITY;
-        this.pitch -= PeripheralsInputs['mouseY'] * this.SENSITIVITY;
 
         this.pitch = Math.max(-this.MAX_PITCH + (Math.PI/12), Math.min(this.MAX_PITCH, this.pitch));
 
 
         const yawQuat = new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), this.yaw);
-        const pitchQuat = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), this.pitch);
 
-        const combinedQuat = new Quaternion().multiplyQuaternions(yawQuat, pitchQuat);
+        const rollAngle = Math.max(Math.min(this.latVel * 0.1, Math.PI/6), -Math.PI/6); 
+        const rollQuat = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), rollAngle);
+        const finalQuat = yawQuat.clone().multiply(rollQuat);
+        this.root.quaternion.copy(finalQuat);
 
-        this.root.quaternion.copy(combinedQuat);
 
-
-        this.handleCamera(combinedQuat);
+        
 
         const key_q = PeripheralsInputs['q'];
         const key_e = PeripheralsInputs['e'];
@@ -144,13 +170,14 @@ export class Character{
         const firePrimary = PeripheralsInputs['mb0'];
 
         this.movement(key_a,key_d,key_s,key_w,key_c,time);
-
+        this.handleCamera(yawQuat);
         if (firePrimary === 1)
             this.fireSelectedWeapon();
         
     }
 
     shipCollision(object){
+        if(!object || !object.loaded || !object.obj) return;
         if(this.dead) return;
         if(!(object instanceof Enemy)) return;
         if(object.isDead()) return;
@@ -158,9 +185,11 @@ export class Character{
         if(this.collisionsResultShip[object.getName()]) return;
         const currentPos = this.getWorldPosition();
         const otherPos = object.getWorldPosition();
+        currentPos.z = 0;
+        otherPos.z = 0;     
         const direction = new Vector3();
         direction.subVectors(otherPos, currentPos);
-
+        direction.z = 0;
         const distance = direction.length();
         if(distance < this.getHitboxSize() + object.getHitboxSize()){
             const normDirection = direction.lengthSq() === 0 ? new Vector3(): direction.normalize();
@@ -210,6 +239,7 @@ export class Character{
             }
             this.collisionsResultShip[object.getName()] = report;
             object.collisionsResultShip[this.getName()] = reportOther;
+            if(this.sound) this.sound.play();
             if(deltaL > 0){
                 this.getMesh().position.addScaledVector(dirMine, deltaL/2);
                 object.getMesh().position.addScaledVector(dirOther, deltaL/2);
@@ -304,22 +334,22 @@ export class Character{
         return data;
     }
 
-    handleCamera(combinedQuat){
+    handleCamera(yawQuat){
         const shipPos = this.root.getWorldPosition(new Vector3());
 
         const baseOffset = new Vector3(0,-5,3);
         const cameraOffset = baseOffset.clone().multiplyScalar(GameState.zoom.level);
-        cameraOffset.applyQuaternion(combinedQuat);
+        cameraOffset.applyQuaternion(yawQuat);
 
         const cameraPos = shipPos.clone().add(cameraOffset);
         cameraPos.add(GameState.cameraRecoilOffset);
-        GameState.cameraRecoilOffset.multiplyScalar(0.7);
+        GameState.cameraRecoilOffset.multiplyScalar(0.5);
         GameState.camera.position.lerp(cameraPos, 0.2);
         
         const forward = new Vector3(0,1,0);
-        forward.applyQuaternion(combinedQuat);
+        forward.applyQuaternion(yawQuat);
 
-        const lookPos = shipPos.clone().add(forward.multiplyScalar(10));
+        const lookPos = shipPos.clone().add(forward.multiplyScalar(15));
 
         if(!GameState.camera.__lookTarget){
             GameState.camera.__lookTarget = lookPos.clone();
@@ -347,7 +377,6 @@ export class Character{
         
         const right = new Vector3(1, 0, 0);
         const forward = new Vector3(0, 1, 0);
-        const up = new Vector3(0, 0, 1);
         
         
         forward.applyQuaternion(this.root.quaternion);
@@ -357,15 +386,11 @@ export class Character{
         movementVector.addScaledVector(forward, this.vel * time);
         movementVector.addScaledVector(right, this.latVel * time)
 
-        if(this.vertVel !== 0){
-            up.applyQuaternion(this.root.quaternion);
-            this.vertVel = Math.min(this.vertVel, this.MAX_SPEED);
-            this.vertVel /= drag;
-            movementVector.addScaledVector(up, this.vertVel * time);
-        }
-
-        this.targetPos.add(movementVector);
-        this.root.position.lerp(this.targetPos, 0.1)
+        // this.targetPos.add(movementVector);
+        // this.targetPos.z = 0;
+        // this.root.position.lerp(this.targetPos, 0.1);
+        this.root.position.add(movementVector);
+        this.root.position.z = 0;
     }
 
     getName(){ return 'player'; }
@@ -382,23 +407,22 @@ export class Character{
         forward.applyQuaternion(this.root.quaternion);
         const right = new Vector3(1,0,0);
         right.applyQuaternion(this.root.quaternion);
-        const up = new Vector3(0,0,1);
-        up.applyQuaternion(this.root.quaternion);
-        const total = new Vector3();
 
-        total.addScaledVector(up, this.vertVel);
+        const total = new Vector3()
         total.addScaledVector(right, this.latVel);
         total.addScaledVector(forward, this.vel);
-
+        total.z = 0;
         return total.clone();
     }
 
     getWorldPosition(){ 
         if(!this.root || !this.loaded) {
             console.warn(this.getName() + 'Position not found');
-            return new Vector3(100,100,100);
+            return new Vector3(0,0,0);
         }
-        return this.obj.getWorldPosition(new Vector3()); 
+        const pos = this.obj.getWorldPosition(new Vector3()); 
+        pos.z  = 0;
+        return pos;
     }
     getWorldDirection(){
         if(!this.root || !this.loaded) {
@@ -407,6 +431,7 @@ export class Character{
         }
         const direction = new Vector3(0, 1, 0);
         direction.applyQuaternion(this.root.quaternion);
+        direction.z = 0;
         direction.normalize();
         return direction;
     }
@@ -414,7 +439,7 @@ export class Character{
 
     getHealth(){ return this.currentHp; }
     
-    getMaxHealth() {return this.maxHp; }
+    getMaxHealth() {return this.MAX_HP; }
 
     destroy(){
         if (this.root) {
@@ -438,6 +463,7 @@ export class Character{
         this.loaded = false;
 
         console.log(`[${this.getName()}] is Dead`);
+        GameOver.updateScore(GameState.score.toFixed(2));
         GameOver.showGameOverScreen();
     }
 
@@ -494,7 +520,9 @@ export class Character{
     takeDamage(damage){
         if(this.dead) return;
         console.log(`[${this.getName()}] taking ${damage.toFixed(2)} damage (HP before: ${this.currentHp.toFixed(2)})`);
-        this.currentHp -= damage
+        
+        this.currentHp -= Math.min(damage, this.damageThreshold);
+        this.damageThreshold -= damage;
         if(this.currentHp <= 0){
             this.currentHp = 0;
             this.explosion();

@@ -22,6 +22,16 @@ export class Explosion{
         this.size = user.getHitboxSize()*10;
         this.finished = false;
         GameState.scene.add(this.mesh);
+
+        if (GameState.explosionSoundBuffer) {
+            this.sound = new THREE.PositionalAudio(GameState.listener);
+            this.sound.setBuffer(GameState.explosionSoundBuffer);
+            this.sound.setRefDistance(20);
+            this.sound.setVolume(0.8);
+            this.sound.setLoop(false);
+            this.mesh.add(this.sound);
+            if(this.sound) this.sound.play();
+        }
     }
 
     update(dt){
@@ -37,8 +47,8 @@ export class Explosion{
             this.finished = true;
             return;
         }
-        
-        // const scale = THREE.MathUtils.lerp(1, this.size, t);
+
+
         const scale = 0.5 + (this.size - 0.5) * t * t;
 
         this.mesh.scale.setScalar(scale);

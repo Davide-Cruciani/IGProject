@@ -7,14 +7,16 @@ import { Corvette } from './enemies/Corvette';
 import { Skysphere } from './Skysphere';
 
 export function resetGame() {
-    GameState.clock.stop();
     GameState.paused = true;
+    GameState.clock.stop();
 
     GameState.scene.clear();
 
     GameState.npcs = [];
     GameState.planets = [];
     GameState.bullets = [];
+
+    GameState.score = 0;
 
     GameState.zoom.level = 1;
     GameState.cameraRecoilOffset.set(0, 0, 0);
@@ -42,13 +44,13 @@ export function resetGame() {
     const skysphere = new Skysphere();
     GameState.scene.add(skysphere.getMesh());
 
-    const player = new Character(new THREE.Vector3(0, -10, 200));
+    const player = new Character(new THREE.Vector3(0, -200, 0));
     GameState.player = player;
 
-    const enemy1 = new Corvette(new THREE.Vector3(0, 30, 200), "team1");
-    GameState.npcs.push(enemy1);
 
-    GameState.clock.start();
-    GameState.fps.sinceLast = GameState.clock.getElapsedTime();
-    GameState.paused = false;
+    setTimeout(()=>{
+        GameState.clock.start();
+        GameState.fps.sinceLast = GameState.clock.getElapsedTime();
+        GameState.paused = false;
+    }, 100);
 }

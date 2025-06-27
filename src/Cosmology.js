@@ -10,16 +10,13 @@ export function generatePlanetPosition(){
     const sunPos = GameState.sun.getWorldPosition();
 
     const theta = Math.random() * 2 * Math.PI;
-    const phi = Math.acos(2 * Math.random() - 1);
 
     const radius = 300 + Math.random() * 200;
 
-    const x = radius * Math.sin(phi) * Math.cos(theta);
-    const y = radius * Math.sin(phi) * Math.sin(theta);
-    const z = radius * Math.cos(phi);
-
-    const offset = new THREE.Vector3(x, y, z);
-    return sunPos.clone().add(offset);
+    const x = radius * Math.cos(theta);
+    const y = radius * Math.sin(theta);
+    const z = sunPos.z;
+    return new THREE.Vector3(sunPos.x + x, sunPos.y + y, z);
 }
 export class Planet{
     constructor(position, radius, mass, type) {
@@ -101,29 +98,22 @@ export class Planet{
         const forceDir = new Vector3().subVectors(sunPos, position);
         const distance = forceDir.length();
 
-        var randomVec = new Vector3(Math.random(), Math.random(), Math.random()).normalize();
-        var axis1 = new Vector3().crossVectors(forceDir, randomVec).normalize();
-        if (axis1.lengthSq() === 0) {
-            randomVec = new Vector3(1, 0, 0);
-            axis1 = new Vector3().crossVectors(forceDir, randomVec).normalize();
-        }
-    
-        const axis2 = new Vector3().crossVectors(forceDir, axis1).normalize();
-        const angle = Math.random() * 2 * Math.PI;
-        const vel = new Vector3();
-        vel.copy(axis1).multiplyScalar(Math.cos(angle));
-        vel.addScaledVector(axis2, Math.sin(angle));
+        const direction = new Vector3(0,0,1).cross(forceDir).normalize();
+
         
         const massSun = GameState.sun.getMass();
         const orbitalSpeed = Math.sqrt(massSun * GameConfigs.GRAVITATION / Math.max(distance, 1));
 
-        this.speed = vel.multiplyScalar(orbitalSpeed);
+        this.speed = direction.multiplyScalar(orbitalSpeed);
+        if(this.speed.z !== 0) this.speed.z = 0;
         GameState.scene.add(this.mesh);
     }
 
     update(dt){
         const time = dt * GameState.timeDial;
         const gravity = this.computeGravity();
+
+        // console.log(this.getWorldPosition().toArray());
 
         const collisionsResult = new Vector3();
         for(const planet in this.collisionMemory){
@@ -135,7 +125,9 @@ export class Planet{
 
         this.speed.addScaledVector(gravity, time);
         this.speed.addScaledVector(collisionsResult, time);
+        this.speed.z = 0;
         this.mesh.position.addScaledVector(this.speed, time);
+        this.mesh.position.z = 0;
         switch (this.rotDir) {
             case 0:
                 this.mesh.rotation.y += time*this.ROTATION_SPEED
@@ -159,7 +151,11 @@ export class Planet{
             const planetPos = planet.getWorldPosition();
 
 
-            const vectorToPlanet = new Vector3();
+            const vectorToPlanet = new Vector3(
+                planetPos.x - currentPos.x,
+                planetPos.y - currentPos.y,
+                0
+            );
             vectorToPlanet.subVectors(planetPos, currentPos);
 
             const distance = vectorToPlanet.length();
@@ -206,12 +202,20 @@ export class Planet{
         const myPos = this.getWorldPosition();
         const otherPos = other.getWorldPosition();
 
-        const dist = new Vector3();
+        const dist = new Vector3(
+            otherPos.x - myPos.x,
+            otherPos.y - myPos.y,
+            0
+        );
         dist.subVectors(otherPos, myPos);
         if(dist.length() < this.getHitboxSize() + other.getHitboxSize()){
             const myVel = this.getVelocity();
             const otherVel = other.getVelocity();
-            const relativeVel = otherVel.clone().sub(myVel);
+            const relativeVel = new Vector3(
+                otherVel.x - myVel.x,
+                otherVel.y - myVel.y,
+                0
+            );
 
             
             const direction = (dist.lengthSq() === 0)? new Vector3(): dist.clone().normalize(); 
@@ -235,8 +239,13 @@ export class Planet{
                 this.collisionMemory[other.getName()] = report;
                 other.collisionMemory[this.getName()] = otherReport;
                 if (deltaL>0){
-                    this.mesh.position.addScaledVector(dirMine, deltaL/2);
-                    other.mesh.position.addScaledVector(dirOther, deltaL/2);
+                    this.mesh.position.x += dirMine.x * deltaL/2;
+                    this.mesh.position.y += dirMine.y * deltaL/2;
+                    this.mesh.position.z = 0;
+
+                    other.mesh.position.x += dirOther.x * deltaL/2;
+                    other.mesh.position.y += dirOther.y * deltaL/2;
+                    other.mesh.position.z = 0;
                 }
             }
 

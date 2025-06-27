@@ -31,6 +31,7 @@ export class Rocket{
         });
         this.headMesh = new THREE.Mesh(this.headGeo, this.headMtl);
         this.headMesh.position.copy(position);
+        this.headMesh.position.z = 0;
 
         this.bodyGeo = new THREE.CylinderGeometry(size, size, this.BODY_LEN, 8, 1, true);
         this.bodyMtl = new THREE.MeshBasicMaterial({color: 0xffffff});
@@ -44,6 +45,7 @@ export class Rocket{
 
         this.valid = true;
         this.direction = direction;
+        this.direction.z = 0;
         this.direction.normalize();
 
         this.exploded = false;
@@ -56,6 +58,16 @@ export class Rocket{
 
         this.currentHeading = null;
 
+        if (GameState.explosionSoundBuffer) {
+            this.sound = new THREE.PositionalAudio(GameState.listener);
+            this.sound.setBuffer(GameState.explosionSoundBuffer);
+            this.sound.setRefDistance(20);
+            this.sound.setVolume(0.8);
+            this.sound.setLoop(false);
+            this.getMesh().add(this.sound);
+            
+        }
+
         this.checkForTarget();
 
     }
@@ -65,6 +77,7 @@ export class Rocket{
         const position = this.getWorldPosition();
         GameState.npcs.forEach((npc)=>{
             const npcPos = npc.getWorldPosition();
+            npcPos.z = 0;
             const dist = new THREE.Vector3().subVectors(npcPos, position);
             const distance = dist.length()
             if(distance < this.DETECTION_RANGE){
@@ -81,8 +94,10 @@ export class Rocket{
     checkCelestial(celestial){
         if(!(celestial instanceof Planet) && !(celestial instanceof Star)) return;
         const myPos = this.getWorldPosition();
-        if(!myPos) return;
         const celestialPos = celestial.getWorldPosition();
+        if(!myPos || !celestialPos) return;
+        myPos.z = 0;
+        celestialPos.z = 0;
         const distance = new THREE.Vector3();
         distance.subVectors(celestialPos, myPos);
         if (distance.length() < celestial.getHitboxSize() + this.getHitboxSize()){
@@ -94,6 +109,7 @@ export class Rocket{
         if(!this.headMesh) return new THREE.Vector3();
         const direction = new Vector3(0, 1, 0);
         direction.applyQuaternion(this.headMesh.quaternion);
+        direction.z = 0;
         direction.normalize();
         return direction;
     }
@@ -102,6 +118,7 @@ export class Rocket{
         if(!this.headMesh) return new THREE.Vector3();;
         const res = new THREE.Vector3();
         this.headMesh.getWorldPosition(res);
+        res.z = 0;
         return res;
     }
 
@@ -167,6 +184,7 @@ export class Rocket{
             const movement = this.direction.clone();
             movement.multiplyScalar(this.SPEED * time);
             this.headMesh.position.add(movement);
+            this.headMesh.position.z = 0;
             this.age += time;
         }
 
@@ -178,13 +196,17 @@ export class Rocket{
                     this.secondTry = true;
                     if(this.target){
                         const targetPos = this.target.getWorldPosition();
+                        targetPos.z = 0;
                         const newDir = new THREE.Vector3().subVectors(targetPos, this.headMesh.position);
+                        newDir.z = 0;
                         if(newDir.lengthSq() > 0)
                             this.direction = newDir.normalize();
                     }
                 }
 
                 const currentForward = new THREE.Vector3(0, 1, 0).applyQuaternion(this.headMesh.quaternion);
+                currentForward.z = 0;
+                currentForward.normalize();
                 const desiredDirection = this.direction.clone().normalize();
                 const quat = new THREE.Quaternion().setFromUnitVectors(currentForward, desiredDirection);
                 quat.multiply(this.headMesh.quaternion);
@@ -192,14 +214,17 @@ export class Rocket{
 
                 movement.multiplyScalar(this.SPEED * time);
                 this.headMesh.position.add(movement);
+                this.headMesh.position.z = 0;
+
                 this.age += time;
             }else{
                 const targetPos = this.target.getWorldPosition();
+                targetPos.z = 0;
                 if(!this.currentHeading && !this.target.isDead())
                     this.currentHeading = targetPos.clone();
                 else if(!this.target.isDead())
                     this.currentHeading.lerp(targetPos, 0.1);
-
+                this.currentHeading.z = 0;
                 const targetDir = new THREE.Vector3().subVectors(this.currentHeading, this.headMesh.position);
                 const distanceToTarget = targetDir.length();
 
@@ -208,11 +233,13 @@ export class Rocket{
                     this.direction.lerp(targetDir, 0.1).normalize();
 
                     const currentForward = new THREE.Vector3(0, 1, 0).applyQuaternion(this.headMesh.quaternion);
+                    currentForward.z = 0;
                     const quat = new THREE.Quaternion().setFromUnitVectors(currentForward, targetDir);
                     quat.multiply(this.headMesh.quaternion)
                     this.headMesh.quaternion.slerp(quat, 0.2); 
 
                     this.headMesh.position.addScaledVector(targetDir, this.SPEED * time);
+                    this.headMesh.position.z = 0;
                 }
             }
 
@@ -245,7 +272,9 @@ export class Rocket{
         if(object === this.user || !this.valid) return {occurred: false};
         const otherPos = object.getWorldPosition();
         const myPos = this.getWorldPosition();
-        if(!myPos) return {occurred: false};
+        if(!myPos || !otherPos) return {occurred: false};
+        myPos.z = 0;
+        otherPos.z = 0;
         const dist = new THREE.Vector3();
         dist.subVectors(otherPos, myPos);
 
@@ -303,6 +332,7 @@ export class Rocket{
             this.bodyMesh = null;
         }
 
+        if(this.sound) this.sound.play();
         this.headMtl.color.setRGB(1, 0.6, 0.2);
         this.headMtl.emissive.setRGB(1, 0.3, 0.1);
         this.headMtl.needsUpdate = true;

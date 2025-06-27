@@ -6,5 +6,7 @@ export const GameConfigs = {
     IMPACT_MUL:3,
     DENSITY:5,
     BLOOM_LAYER:1,
-    SKYBOX_RADIUS:1000
+    SKYBOX_RADIUS:1000,
+    MOB_CAP:6,
+    SPAWN_CD: 30
 }
